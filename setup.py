@@ -23,7 +23,7 @@ setup(
     name=_project,
     version=_version,
     license=_license,
-    description=_read('DESCRIPTION'),
+    description=_read('Sentry integration to Muffin framework.'),
     long_description=_read('README.rst'),
     platforms=('Any'),
     keywords = "asyncio aiohttp muffin sentry".split(), # noqa

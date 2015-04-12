@@ -51,6 +51,33 @@ Installation
 Usage
 =====
 
+Add **muffin_sentry** to **PLUGINS** in your Muffin Application configuration.
+
+Options
+-------
+
+**SENTRY_DSN**  -- Sentry DSN for your application ('')
+
+**SENTRY_TAGS** -- Additional tags (None)
+
+**SENTRY_PROCESSORS** -- Additional processors (None)
+
+**SENTRY_EXCLUDE_PATHS** -- Exclude paths (None)
+
+Manual use
+----------
+
+The plugin starts working automaticaly, but you can use it manually:
+
+.. code:: python
+
+    @app.register('/my')
+    def my_view(request):
+        # ...
+        yield from app.ps.sentry.captureMessage('Hello from my view')
+        # ...
+        yield from app.ps.sentry.captureException(request=request)
+
 .. _bugtracker:
 
 Bug tracker
