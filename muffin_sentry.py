@@ -10,7 +10,7 @@ from muffin.plugins import BasePlugin
 # Package information
 # ===================
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 __project__ = "muffin-sentry"
 __author__ = "Kirill Klenov <horneds@gmail.com>"
 __license__ = "MIT"
