@@ -1,6 +1,6 @@
+import mock
 import muffin
 import pytest
-import mock
 from raven import Client
 
 
@@ -27,7 +27,6 @@ def app(loop):
 @mock.patch.object(Client, 'send')
 def test_muffin_sentry(mocked, app, client):
     assert app.ps.sentry
-    assert app.ps.sentry.options.dsn == 'aiohttp+http://public:secret@example.com/1'
 
     response = client.get('/success')
     assert response.text == 'OK'

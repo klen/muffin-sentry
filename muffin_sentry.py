@@ -2,6 +2,7 @@
 import asyncio
 
 import raven
+import raven_aiohttp
 import sys
 from muffin import HTTPException
 from muffin.plugins import BasePlugin
@@ -31,13 +32,15 @@ class Plugin(BasePlugin):
     def setup(self, app):
         """ Initialize Sentry Client. """
         super().setup(app)
-        if self.options.dsn and not self.options.dsn.startswith('aiohttp'):
-            self.options.dsn = 'aiohttp+' + self.options.dsn
 
         self.client = raven.Client(
-            self.options.dsn, exclude_paths=self.options.exclude_paths,
-            processors=self.options.processors, tags=self.options.tags, context={
-                'app': app.name, 'sys.argv': sys.argv[:]})
+            self.options.dsn, transport=raven_aiohttp.AioHttpTransport,
+            exclude_paths=self.options.exclude_paths, processors=self.options.processors,
+            tags=self.options.tags, context={'app': app.name, 'sys.argv': sys.argv[:]})
+
+    def start(self, app):
+        """ Bind loop to transport. """
+        self.client.remote.options['loop'] = self.app.loop
 
     @asyncio.coroutine
     def _get_data_from_request(self, request):
