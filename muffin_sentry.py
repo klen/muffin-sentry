@@ -25,17 +25,14 @@ def sentry_middleware_factory(app, handler):
     @asyncio.coroutine
     def sentry_middleware(request):
         try:
-            response = yield from handler(request)
-            return response
+            return (yield from handler(request))
 
-        except HTTPException as exc:
-            raise exc
+        except HTTPException:
+            raise
 
-        except Exception as exc:
-            if sentry.client:
-                exc_info = sys.exc_info()
-                yield from sentry.captureException(exc_info, request=request)
-            raise exc
+        except Exception:
+            yield from sentry.captureException(sys.exc_info(), request=request)
+            raise
 
     return sentry_middleware
 
