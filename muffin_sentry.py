@@ -75,11 +75,11 @@ class Plugin(BasePlugin):
 
         self.client = None
 
-        if self.options.dsn:
+        if self.cfg.dsn:
             self.client = raven.Client(
-                self.options.dsn, transport=raven_aiohttp.AioHttpTransport,
-                exclude_paths=self.options.exclude_paths, processors=self.options.processors,
-                tags=self.options.tags, context={'app': app.name, 'sys.argv': sys.argv[:]})
+                self.cfg.dsn, transport=raven_aiohttp.AioHttpTransport,
+                exclude_paths=self.cfg.exclude_paths, processors=self.cfg.processors,
+                tags=self.cfg.tags, context={'app': app.name, 'sys.argv': sys.argv[:]})
 
     def start(self, app):
         """ Bind loop to transport. """
