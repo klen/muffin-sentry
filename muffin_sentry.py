@@ -11,7 +11,7 @@ from muffin.plugins import BasePlugin
 # Package information
 # ===================
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 __project__ = "muffin-sentry"
 __author__ = "Kirill Klenov <horneds@gmail.com>"
 __license__ = "MIT"
