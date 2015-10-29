@@ -17,15 +17,6 @@ Muffin-Sentry -- Integrate Sentry to Muffin framework.
 .. image:: http://img.shields.io/pypi/dm/muffin-sentry.svg?style=flat-square
     :target: https://pypi.python.org/pypi/muffin-sentry
 
-.. image:: http://img.shields.io/gratipay/klen.svg?style=flat-square
-    :target: https://www.gratipay.com/klen/
-    :alt: Donate
-
-.. _documentation:
-
-**Docs are available at https://muffin-sentry.readthedocs.org/. Pull requests
-with documentation enhancements and/or fixes are awesome and most welcome.**
-
 .. _contents:
 
 .. contents::
@@ -103,9 +94,17 @@ Contributors
 .. _license:
 
 License
-=======
+========
 
 Licensed under a `MIT license`_.
+
+If you wish to express your appreciation for the project, you are welcome to send
+a postcard to: ::
+
+    Kirill Klenov
+    pos. Severny 8-3
+    MO, Istra, 143500
+    Russia
 
 .. _links:
 
