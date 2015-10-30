@@ -70,25 +70,25 @@ class Plugin(BasePlugin):
             exclude_paths=self.cfg.exclude_paths, processors=self.cfg.raven_processors,
             tags=self.cfg.tags, context={'app': app.name, 'sys.argv': sys.argv[:]})
 
-        if self.cfg.processors:
-            self.processors = []
-            for P in set(self.cfg.processors):
-                if isinstance(P, str):
-                    try:
-                        mod, klass = P.rsplit('.', 1)
-                        mod = importlib.import_module(mod)
-                        P = getattr(mod, klass)
-                    except (ImportError, AttributeError):
-                        self.app.logger.error('Invalid Sentry Processor: P')
-                        continue
-                P.process = to_coroutine(P.process)
-                self.processors.append(P(self))
-
     def start(self, app):
         """Bind loop to transport."""
         if self.client:
             self.client.remote.options['loop'] = self.app.loop
             app.middlewares.insert(0, sentry_middleware_factory)
+
+            if self.cfg.processors:
+                self.processors = []
+                for P in self.cfg.processors:
+                    if isinstance(P, str):
+                        try:
+                            mod, klass = P.rsplit('.', 1)
+                            mod = importlib.import_module(mod)
+                            P = getattr(mod, klass)
+                        except (ImportError, AttributeError):
+                            self.app.logger.error('Invalid Sentry Processor: %s' % P)
+                            continue
+                    P.process = to_coroutine(P.process)
+                    self.processors.append(P(self))
 
     @asyncio.coroutine
     def captureException(self, *args, request=None, data=None, **kwargs):
