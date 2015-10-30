@@ -6,22 +6,22 @@ from raven import Client
 
 @pytest.fixture(scope='session')
 def app(loop):
-    app = muffin.Application(
+    app_ = muffin.Application(
         'sentry', loop=loop,
 
         PLUGINS=['muffin_sentry'],
         SENTRY_DSN="http://public:secret@example.com/1"
     )
 
-    @app.register('/success')
+    @app_.register('/success')
     def success(request):
         return 'OK'
 
-    @app.register('/error')
+    @app_.register('/error')
     def error(request):
         raise Exception('Unhandled exception')
 
-    return app
+    return app_
 
 
 @mock.patch.object(Client, 'send')
@@ -34,3 +34,4 @@ def test_muffin_sentry(mocked, app, client):
     with pytest.raises(Exception):
         client.get('/error')
     assert mocked.called
+    assert mocked.call_args[1]['request']

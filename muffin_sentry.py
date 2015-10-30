@@ -39,22 +39,6 @@ def sentry_middleware_factory(app, handler):
     return sentry_middleware
 
 
-@asyncio.coroutine
-def request_to_data(request):
-    """Prepare data for Sentry from aiohttp.Request."""
-    data = {}
-    if request.method in ('POST', 'PUT', 'PATCH') and request._post is None:
-        data = yield from request.post()
-
-    return {
-        'url': "%s://%s%s" % (request.scheme, request.host, request.path),
-        'query_string': request.query_string,
-        'method': request.method,
-        'headers': {k.title(): str(v) for k, v in request.headers.items()},
-        'data': dict(data),
-    }
-
-
 class Plugin(BasePlugin):
 
     """Setup Sentry and send exceptions and messages."""
@@ -65,11 +49,14 @@ class Plugin(BasePlugin):
         'dsn': '',              # Sentry DSN
         'catch_all': True,      # Catch all exceptions (enable Sentry middleware)
         'tags': None,           # Raven tags (See Raven docs for more)
-        'processors': None,     # Message processors (See Raven docs for more)
-        'async_processors': None,  # List of async processors with takes request in context
+        'raven_processors': None,     # Message processors (See Raven docs for more)
+
+        # List of async processors with takes request and app in context
+        'processors': ('muffin_sentry.RequestProcessor',),
+
         'exclude_paths': None,  # Exclude request paths
     }
-    async_processors = None
+    processors = None
 
     def setup(self, app):
         """Initialize Sentry Client."""
@@ -80,12 +67,12 @@ class Plugin(BasePlugin):
 
         self.client = raven.Client(
             self.cfg.dsn, transport=raven_aiohttp.AioHttpTransport,
-            exclude_paths=self.cfg.exclude_paths, processors=self.cfg.processors,
+            exclude_paths=self.cfg.exclude_paths, processors=self.cfg.raven_processors,
             tags=self.cfg.tags, context={'app': app.name, 'sys.argv': sys.argv[:]})
 
-        if self.cfg.async_processors:
-            self.async_processors = []
-            for P in self.cfg.async_processors:
+        if self.cfg.processors:
+            self.processors = []
+            for P in set(self.cfg.processors):
                 if isinstance(P, str):
                     try:
                         mod, klass = P.rsplit('.', 1)
@@ -95,7 +82,7 @@ class Plugin(BasePlugin):
                         self.app.logger.error('Invalid Sentry Processor: P')
                         continue
                 P.process = to_coroutine(P.process)
-                self.async_processors.append(P(self.client))
+                self.processors.append(P(self))
 
     def start(self, app):
         """Bind loop to transport."""
@@ -121,12 +108,45 @@ class Plugin(BasePlugin):
     def prepareData(self, data=None, request=None):
         """Data prepare before send it to Sentry."""
         data = data or {}
-        if request is not None:
-            data['request'] = yield from request_to_data(request)
-
-        if self.async_processors:
-            for p in self.async_processors:
+        if self.processors:
+            for p in self.processors:
                 data_ = yield from p.process(data, request=request)
                 data.update(data_)
 
         return data
+
+
+class Processor:
+
+    """Base class for async processors.."""
+
+    __slots__ = 'plugin',
+
+    def __init__(self, plugin):
+        """Store Sentry plugin in self."""
+        self.plugin = plugin
+
+
+class RequestProcessor(Processor):
+
+    """Process request for Sentry."""
+
+    @asyncio.coroutine
+    def process(self, data, request=None):  # noqa
+        """Append request data to Sentry context."""
+        data = {}
+        if request is None:
+            return data
+
+        if request.method in ('POST', 'PUT', 'PATCH') and request._post is None:
+            data = yield from request.post()
+
+        return {
+            'request': {
+                'url': "%s://%s%s" % (request.scheme, request.host, request.path),
+                'query_string': request.query_string,
+                'method': request.method,
+                'headers': {k.title(): str(v) for k, v in request.headers.items()},
+                'data': dict(data),
+            }
+        }

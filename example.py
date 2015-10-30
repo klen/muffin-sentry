@@ -11,7 +11,7 @@ class Processor:
         """Store client."""
         self.client = client
 
-    def process(self, data, request=None):  # noqa
+    def process(self, data, request=None, app=None):  # noqa
         """Process data."""
         extra = data.get('extra', {})
         extra['test'] = 'passed'
