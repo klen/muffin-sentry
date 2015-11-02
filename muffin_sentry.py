@@ -111,7 +111,10 @@ class Plugin(BasePlugin):
         if self.processors:
             for p in self.processors:
                 data_ = yield from p.process(data, request=request)
-                data.update(data_)
+                try:
+                    data.update(data_)
+                except TypeError:
+                    self.app.logger.warn('Invalid processor response from %s' % p)
 
         return data
 
@@ -134,19 +137,18 @@ class RequestProcessor(Processor):
     @asyncio.coroutine
     def process(self, data, request=None):  # noqa
         """Append request data to Sentry context."""
-        data = {}
         if request is None:
-            return data
+            return {}
 
-        if request.method in ('POST', 'PUT', 'PATCH') and request._post is None:
-            data = yield from request.post()
-
-        return {
+        data = {
             'request': {
                 'url': "%s://%s%s" % (request.scheme, request.host, request.path),
                 'query_string': request.query_string,
                 'method': request.method,
                 'headers': {k.title(): str(v) for k, v in request.headers.items()},
-                'data': dict(data),
             }
         }
+
+        data['request']['data'] = yield from request.read()
+
+        return data

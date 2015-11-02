@@ -22,7 +22,7 @@ app = muffin.Application(
     'sentry',
 
     PLUGINS=('muffin_sentry',),
-    SENTRY_DSN='',  # noqa
+    SENTRY_DSN='PUT YOUR API KEY HERE',  # noqa
     SENTRY_ASYNC_PROCESSORS=('example.Processor',)
 
 )
@@ -32,3 +32,6 @@ app = muffin.Application(
 def exception(request):
     """Raise unhandled exception here."""
     raise ValueError('Test exception')
+
+if __name__ == "__main__":
+    app.manage()
