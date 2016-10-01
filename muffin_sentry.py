@@ -29,7 +29,7 @@ def sentry_middleware_factory(app, handler):
         try:
             return (yield from handler(request))
 
-        except HTTPException:
+        except (HTTPException, asyncio.CancelledError):
             raise
 
         except Exception:
