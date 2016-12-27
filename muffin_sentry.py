@@ -1,10 +1,10 @@
 """Sentry integration to Muffin framework."""
 import asyncio
+import importlib
+import sys
 
 import raven
 import raven_aiohttp
-import sys
-import importlib
 from muffin import HTTPException, to_coroutine
 from muffin.plugins import BasePlugin
 
@@ -90,15 +90,23 @@ class Plugin(BasePlugin):
                     P.process = to_coroutine(P.process)
                     self.processors.append(P(self))
 
+    def captureException(self, *args, **kwargs):
+        """Capture exception."""
+        return asyncio.ensure_future(self._captureException(*args, **kwargs), loop=self.app.loop)
+
+    def captureMessage(self, *args, **kwargs):
+        """Capture message."""
+        return asyncio.ensure_future(self._captureMessage(*args, **kwargs), loop=self.app.loop)
+
     @asyncio.coroutine
-    def captureException(self, *args, request=None, data=None, **kwargs):
+    def _captureException(self, *args, request=None, data=None, **kwargs):
         """Send exception."""
         assert self.client, 'captureException called before the plugin configured'
         data = yield from self.prepareData(data, request)
         return self.client.captureException(*args, data=data, **kwargs)
 
     @asyncio.coroutine
-    def captureMessage(self, *args, request=None, data=None, **kwargs):
+    def _captureMessage(self, *args, request=None, data=None, **kwargs):
         """Send message."""
         assert self.client, 'captureMessage called before the plugin configured'
         data = yield from self.prepareData(data, request)
