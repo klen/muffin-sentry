@@ -18,27 +18,6 @@ __author__ = "Kirill Klenov <horneds@gmail.com>"
 __license__ = "MIT"
 
 
-@asyncio.coroutine
-def sentry_middleware_factory(app, handler):
-    """Create middleware for Sentry plugin."""
-    sentry = app.ps.sentry
-
-    @asyncio.coroutine
-    def sentry_middleware(request):
-        """Catch unhandled exceptions during request."""
-        try:
-            return (yield from handler(request))
-
-        except (HTTPException, asyncio.CancelledError):
-            raise
-
-        except Exception:
-            yield from sentry.captureException(sys.exc_info(), request=request)
-            raise
-
-    return sentry_middleware
-
-
 class Plugin(BasePlugin):
 
     """Setup Sentry and send exceptions and messages."""
@@ -46,10 +25,11 @@ class Plugin(BasePlugin):
     name = 'sentry'
     client = None
     defaults = {
-        'dsn': '',              # Sentry DSN
-        'catch_all': True,      # Catch all exceptions (enable Sentry middleware)
-        'tags': None,           # Raven tags (See Raven docs for more)
-        'raven_processors': None,     # Message processors (See Raven docs for more)
+        'dsn': '',                  # Sentry DSN
+        'catch_all': True,          # Catch all exceptions (enable Sentry middleware)
+        'tags': None,               # Raven tags (See Raven docs for more)
+        'raven_processors': None,   # Message processors (See Raven docs for more)
+        'ignore': (HTTPException, asyncio.CancelledError),
 
         # List of async processors with takes request and app in context
         'processors': ('muffin_sentry.RequestProcessor',),
@@ -70,25 +50,39 @@ class Plugin(BasePlugin):
             exclude_paths=self.cfg.exclude_paths, processors=self.cfg.raven_processors,
             tags=self.cfg.tags, context={'app': app.name, 'sys.argv': sys.argv[:]})
 
-    def start(self, app):
+    def startup(self, app):
         """Bind loop to transport."""
-        if self.client:
-            self.client.remote.options['loop'] = self.app.loop
-            app.middlewares.insert(0, sentry_middleware_factory)
+        if not self.client:
+            raise RuntimeError('Error, muffin-sentry not properly initialized')
 
-            if self.cfg.processors:
-                self.processors = []
-                for P in self.cfg.processors:
-                    if isinstance(P, str):
-                        try:
-                            mod, klass = P.rsplit('.', 1)
-                            mod = importlib.import_module(mod)
-                            P = getattr(mod, klass)
-                        except (ImportError, AttributeError):
-                            self.app.logger.error('Invalid Sentry Processor: %s' % P)
-                            continue
-                    P.process = to_coroutine(P.process)
-                    self.processors.append(P(self))
+        self.client.remote.options['loop'] = self.app.loop
+        if self.cfg.catch_all:
+            app.middlewares.insert(0, self._middleware)
+
+        if self.cfg.processors:
+            self.processors = []
+            for P in self.cfg.processors:
+                if isinstance(P, str):
+                    try:
+                        mod, klass = P.rsplit('.', 1)
+                        mod = importlib.import_module(mod)
+                        P = getattr(mod, klass)
+                    except (ImportError, AttributeError):
+                        self.app.logger.error('Invalid Sentry Processor: %s' % P)
+                        continue
+                P.process = to_coroutine(P.process)
+                self.processors.append(P(self))
+
+    async def _middleware(self, request, handler):
+        try:
+            return await handler(request)
+        except self.cfg.ignore:
+            raise
+        except Exception:
+            await self._captureException(sys.exc_info(), request=request)
+            raise
+
+    _middleware.__middleware_version__ = 1
 
     def captureException(self, *args, **kwargs):
         """Capture exception."""
@@ -98,27 +92,24 @@ class Plugin(BasePlugin):
         """Capture message."""
         return asyncio.ensure_future(self._captureMessage(*args, **kwargs), loop=self.app.loop)
 
-    @asyncio.coroutine
-    def _captureException(self, *args, request=None, data=None, **kwargs):
+    async def _captureException(self, *args, request=None, data=None, **kwargs):
         """Send exception."""
         assert self.client, 'captureException called before the plugin configured'
-        data = yield from self.prepareData(data, request)
+        data = await self.prepareData(data, request)
         return self.client.captureException(*args, data=data, **kwargs)
 
-    @asyncio.coroutine
-    def _captureMessage(self, *args, request=None, data=None, **kwargs):
+    async def _captureMessage(self, *args, request=None, data=None, **kwargs):
         """Send message."""
         assert self.client, 'captureMessage called before the plugin configured'
-        data = yield from self.prepareData(data, request)
+        data = await self.prepareData(data, request)
         return self.client.captureMessage(*args, data=data, **kwargs)
 
-    @asyncio.coroutine
-    def prepareData(self, data=None, request=None):
+    async def prepareData(self, data=None, request=None):
         """Data prepare before send it to Sentry."""
         data = data or {}
         if self.processors:
             for p in self.processors:
-                data_ = yield from p.process(data, request=request)
+                data_ = await p.process(data, request=request)
                 try:
                     data.update(data_)
                 except TypeError:
@@ -142,8 +133,7 @@ class RequestProcessor(Processor):
 
     """Process request for Sentry."""
 
-    @asyncio.coroutine
-    def process(self, data, request=None):  # noqa
+    async def process(self, data, request=None):  # noqa
         """Append request data to Sentry context."""
         if request is None:
             return {}
@@ -157,6 +147,6 @@ class RequestProcessor(Processor):
             }
         }
 
-        data['request']['data'] = yield from request.read()
+        data['request']['data'] = await request.read()
 
         return data

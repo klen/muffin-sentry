@@ -1,16 +1,12 @@
 import mock
 import muffin
 import pytest
-from raven import Client
 
 
 @pytest.fixture(scope='session')
-def app(loop):
+def app():
     app_ = muffin.Application(
-        'sentry', loop=loop,
-
-        PLUGINS=['muffin_sentry'],
-        SENTRY_DSN="http://public:secret@example.com/1"
+        'sentry', PLUGINS=['muffin_sentry'], SENTRY_DSN="http://public:secret@example.com/1"
     )
 
     @app_.register('/success')
@@ -24,14 +20,15 @@ def app(loop):
     return app_
 
 
-@mock.patch.object(Client, 'send')
-def test_muffin_sentry(mocked, app, client):
+async def test_muffin_sentry(app, client):
     assert app.ps.sentry
 
-    response = client.get('/success')
-    assert response.text == 'OK'
+    resp = await client.get('/success')
+    assert resp.status == 200
 
-    with pytest.raises(Exception):
-        client.get('/error')
+    with mock.patch.object(app.ps.sentry.client, 'send') as mocked:
+        resp = await client.get('/error')
+        assert resp.status == 500
+
     assert mocked.called
     assert mocked.call_args[1]['request']
