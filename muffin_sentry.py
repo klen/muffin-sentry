@@ -53,7 +53,7 @@ class Plugin(BasePlugin):
     def startup(self, app):
         """Bind loop to transport."""
         if not self.client:
-            raise RuntimeError('Error, muffin-sentry not properly initialized')
+            return app.logger.warning('Sentry Client is not configured.')
 
         self.client.remote.options['loop'] = self.app.loop
         if self.cfg.catch_all:
