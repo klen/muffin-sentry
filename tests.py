@@ -1,6 +1,7 @@
 import mock
 import muffin
 import pytest
+import asyncio
 
 
 @pytest.fixture(scope='session')

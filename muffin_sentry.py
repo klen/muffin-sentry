@@ -2,6 +2,7 @@
 import asyncio
 import importlib
 import sys
+from aiohttp import web
 
 import raven
 import raven_aiohttp
@@ -30,6 +31,8 @@ class Plugin(BasePlugin):
         'tags': None,               # Raven tags (See Raven docs for more)
         'raven_processors': None,   # Message processors (See Raven docs for more)
         'ignore': (HTTPException, asyncio.CancelledError),
+        'enable_breadcrumbs': False,
+        'install_sys_hook': False,
 
         # List of async processors with takes request and app in context
         'processors': ('muffin_sentry.RequestProcessor',),
@@ -48,12 +51,25 @@ class Plugin(BasePlugin):
         self.client = raven.Client(
             self.cfg.dsn, transport=raven_aiohttp.AioHttpTransport,
             exclude_paths=self.cfg.exclude_paths, processors=self.cfg.raven_processors,
-            tags=self.cfg.tags, context={'app': app.name, 'sys.argv': sys.argv[:]})
+            tags=self.cfg.tags, enable_breadcrumbs=self.cfg.enable_breadcrumbs,
+            context={'app': app.name, 'sys.argv': sys.argv[:]},
+            install_sys_hook=self.cfg.install_sys_hook,
+        )
 
     def startup(self, app):
         """Bind loop to transport."""
         if not self.client:
             return app.logger.warning('Sentry Client is not configured.')
+
+        if not self.cfg.install_sys_hook:
+            original_excepthook = sys.excepthook
+
+            def excepthook(*exc_info):
+                self.captureException(exc_info=exc_info, level="fatal")
+                transport = self.client.remote.get_transport()
+                self.app.loop.run_until_complete(transport.close())
+                original_excepthook(*exc_info)
+            sys.excepthook = excepthook
 
         self.client.remote.options['loop'] = self.app.loop
         if self.cfg.catch_all:
@@ -76,10 +92,12 @@ class Plugin(BasePlugin):
     async def _middleware(self, request, handler):
         try:
             return await handler(request)
+
         except self.cfg.ignore:
             raise
+
         except Exception:
-            await self._captureException(sys.exc_info(), request=request)
+            self.captureException(sys.exc_info(), request=request)
             raise
 
     _middleware.__middleware_version__ = 1
@@ -147,6 +165,14 @@ class RequestProcessor(Processor):
             }
         }
 
-        data['request']['data'] = await request.read()
+        if request.transport:
+            data["request"]["env"] = {
+                "REMOTE_ADDR": request.transport.get_extra_info("peername")[0]
+            }
+
+        try:
+            data['request']['data'] = await request.read()
+        except web.PayloadAccessError:
+            pass
 
         return data
