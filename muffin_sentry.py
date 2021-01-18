@@ -1,13 +1,10 @@
 """Sentry integration to Muffin framework."""
-import asyncio
-import importlib
-import sys
-from aiohttp import web
+from contextvars import ContextVar
+from functools import partial
 
-import raven
-import raven_aiohttp
-from muffin import HTTPException, to_coroutine
-from muffin.plugins import BasePlugin
+from muffin import ResponseError, ResponseRedirect
+from muffin.plugin import BasePlugin
+from sentry_sdk import init as sentry_init, Hub as SentryHub
 
 
 # Package information
@@ -26,153 +23,61 @@ class Plugin(BasePlugin):
     name = 'sentry'
     client = None
     defaults = {
-        'dsn': '',                  # Sentry DSN
-        'catch_all': True,          # Catch all exceptions (enable Sentry middleware)
-        'tags': None,               # Raven tags (See Raven docs for more)
-        'raven_processors': None,   # Message processors (See Raven docs for more)
-        'ignore': (HTTPException, asyncio.CancelledError),
-        'enable_breadcrumbs': False,
-        'install_sys_hook': False,
-
-        # List of async processors with takes request and app in context
-        'processors': ('muffin_sentry.RequestProcessor',),
-
-        'exclude_paths': None,  # Exclude request paths
+        'dsn': '',          # Sentry DSN
+        'sdk_options': {},  # See https://docs.sentry.io/platforms/python/configuration/options/
+        'ignore_errors': (ResponseError, ResponseRedirect),
     }
-    processors = None
+    current_scope = ContextVar('sentry_scope', default=None)
 
-    def setup(self, app):
+    def init(self, app, **options):
         """Initialize Sentry Client."""
-        super().setup(app)
+        super().init(app, **options)
 
         if not self.cfg.dsn:
             return
 
-        self.client = raven.Client(
-            self.cfg.dsn, transport=raven_aiohttp.AioHttpTransport,
-            exclude_paths=self.cfg.exclude_paths, processors=self.cfg.raven_processors,
-            tags=self.cfg.tags, enable_breadcrumbs=self.cfg.enable_breadcrumbs,
-            context={'app': app.name, 'sys.argv': sys.argv[:]},
-            install_sys_hook=self.cfg.install_sys_hook,
-        )
+        # Setup Sentry
+        sentry_init(dsn=self.cfg.dsn)
 
-    def startup(self, app):
-        """Bind loop to transport."""
-        if not self.client:
-            return app.logger.warning('Sentry Client is not configured.')
+        # Install the middleware
+        app.middleware(self.__middleware)
 
-        if not self.cfg.install_sys_hook:
-            original_excepthook = sys.excepthook
+    async def __middleware(self, handler, request, receive, send):
+        """Capture exceptions to Sentry."""
+        with SentryHub(SentryHub.current) as hub:
+            with hub.configure_scope() as scope:
+                self.current_scope.set(scope)
+                processor = partial(self.prepareData, request=request)
+                scope.add_event_processor(processor)
 
-            def excepthook(*exc_info):
-                self.captureException(exc_info=exc_info, level="fatal")
-                transport = self.client.remote.get_transport()
-                self.app.loop.run_until_complete(transport.close())
-                original_excepthook(*exc_info)
-            sys.excepthook = excepthook
+                try:
+                    return await handler(request, receive, send)
 
-        self.client.remote.options['loop'] = self.app.loop
-        if self.cfg.catch_all:
-            app.middlewares.insert(0, self._middleware)
+                except Exception as exc:
+                    if type(exc) not in self.cfg.ignore_errors:
+                        hub.capture_exception(exc)
+                    raise
 
-        if self.cfg.processors:
-            self.processors = []
-            for P in self.cfg.processors:
-                if isinstance(P, str):
-                    try:
-                        mod, klass = P.rsplit('.', 1)
-                        mod = importlib.import_module(mod)
-                        P = getattr(mod, klass)
-                    except (ImportError, AttributeError):
-                        self.app.logger.error('Invalid Sentry Processor: %s' % P)
-                        continue
-                P.process = to_coroutine(P.process)
-                self.processors.append(P(self))
+    def prepareData(self, event, hint, request=None):
+        """Prepare data before send it to Sentry."""
+        event['request'] = {
+            'url': "%s://%s%s" % (request.url.scheme, request.url.host, request.url.path),
+            'query_string': request.url.query_string,
+            'method': request.method,
+            'headers': dict(request.headers),
+        }
 
-    async def _middleware(self, request, handler):
-        try:
-            return await handler(request)
+        if request.get('client'):
+            event["request"]["env"] = {"REMOTE_ADDR": request.client[0]}
 
-        except self.cfg.ignore:
-            raise
-
-        except Exception:
-            self.captureException(sys.exc_info(), request=request)
-            raise
-
-    _middleware.__middleware_version__ = 1
+        return event
 
     def captureException(self, *args, **kwargs):
         """Capture exception."""
-        return asyncio.ensure_future(self._captureException(*args, **kwargs), loop=self.app.loop)
+        with SentryHub(SentryHub.current, self.current_scope.get()) as hub:
+            return hub.capture_exception(*args, **kwargs)
 
     def captureMessage(self, *args, **kwargs):
         """Capture message."""
-        return asyncio.ensure_future(self._captureMessage(*args, **kwargs), loop=self.app.loop)
-
-    async def _captureException(self, *args, request=None, data=None, **kwargs):
-        """Send exception."""
-        assert self.client, 'captureException called before the plugin configured'
-        data = await self.prepareData(data, request)
-        return self.client.captureException(*args, data=data, **kwargs)
-
-    async def _captureMessage(self, *args, request=None, data=None, **kwargs):
-        """Send message."""
-        assert self.client, 'captureMessage called before the plugin configured'
-        data = await self.prepareData(data, request)
-        return self.client.captureMessage(*args, data=data, **kwargs)
-
-    async def prepareData(self, data=None, request=None):
-        """Data prepare before send it to Sentry."""
-        data = data or {}
-        if self.processors:
-            for p in self.processors:
-                data_ = await p.process(data, request=request)
-                try:
-                    data.update(data_)
-                except TypeError:
-                    self.app.logger.warn('Invalid processor response from %s' % p)
-
-        return data
-
-
-class Processor:
-
-    """Base class for async processors.."""
-
-    __slots__ = 'plugin',
-
-    def __init__(self, plugin):
-        """Store Sentry plugin in self."""
-        self.plugin = plugin
-
-
-class RequestProcessor(Processor):
-
-    """Process request for Sentry."""
-
-    async def process(self, data, request=None):  # noqa
-        """Append request data to Sentry context."""
-        if request is None:
-            return {}
-
-        data = {
-            'request': {
-                'url': "%s://%s%s" % (request.scheme, request.host, request.path),
-                'query_string': request.query_string,
-                'method': request.method,
-                'headers': {k.title(): str(v) for k, v in request.headers.items()},
-            }
-        }
-
-        if request.transport:
-            data["request"]["env"] = {
-                "REMOTE_ADDR": request.transport.get_extra_info("peername")[0]
-            }
-
-        try:
-            data['request']['data'] = await request.read()
-        except web.PayloadAccessError:
-            pass
-
-        return data
+        with SentryHub(SentryHub.current, self.current_scope.get()) as hub:
+            return hub.capture_message(*args, **kwargs)

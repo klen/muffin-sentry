@@ -1,2 +1,2 @@
-muffin        >= 0.30.3
-raven-aiohttp >= 0.7.0
+muffin          >= 0.41.8
+sentry-sdk      >= 0.19.5

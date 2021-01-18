@@ -3,19 +3,17 @@ Muffin-Sentry
 
 .. _description:
 
-Muffin-Sentry -- Integrate Sentry to Muffin framework.
+**Muffin-Sentry** -- Sentry_ Integration for Muffin_ framework
 
 .. _badges:
 
-.. image:: http://img.shields.io/travis/klen/muffin-sentry.svg?style=flat-square
-    :target: http://travis-ci.org/klen/muffin-sentry
-    :alt: Build Status
+.. image:: https://github.com/klen/muffin-sentry/workflows/tests/badge.svg
+    :target: https://github.com/klen/muffin-sentry/actions
+    :alt: Tests Status
 
-.. image:: http://img.shields.io/pypi/v/muffin-sentry.svg?style=flat-square
-    :target: https://pypi.python.org/pypi/muffin-sentry
-
-.. image:: http://img.shields.io/pypi/dm/muffin-sentry.svg?style=flat-square
-    :target: https://pypi.python.org/pypi/muffin-sentry
+.. image:: https://img.shields.io/pypi/v/muffin-sentry
+    :target: https://pypi.org/project/muffin-sentry/
+    :alt: PYPI Version
 
 .. _contents:
 
@@ -26,7 +24,7 @@ Muffin-Sentry -- Integrate Sentry to Muffin framework.
 Requirements
 =============
 
-- python >= 3.3
+- python >= 3.8
 
 .. _installation:
 
@@ -42,32 +40,72 @@ Installation
 Usage
 =====
 
-Add **muffin_sentry** to **PLUGINS** in your Muffin Application configuration.
+.. code-block:: python
+
+    from muffin import Application
+    import muffin_sentry
+
+    # Create Muffin Application
+    app = Application('example')
+
+    # Initialize the plugin
+    # As alternative: jinja2 = Jinja2(app, **options)
+    sentry = muffin_sentry.Plugin()
+    sentry.init(app, dsn="DSN_URL")
+
+    # Use it inside your handlers
+
+    # The exception will be send to Sentry
+    @app.route('/unhandled')
+    async def catch_exception(request):
+        raise Exception('unhandled')
+
+    # Capture a message by manual
+    @app.route('/capture_message')
+    async def message(request):
+        sentry.capture_message('a message from app')
+        return 'OK'
+
+    # Capture an exception by manual
+    @app.route('/capture_exception')
+    async def exception(request):
+        sentry.capture_exception(Exception())
+        return 'OK'
+
+    # Update Sentry Scope
+    @app.route('/update_user')
+    async def user(request):
+        scope = sentry.current_scope.get()
+        scope.set_user({'id': 1, 'email': 'example@example.com'})
+        sentry.capture_exception(Exception())
+        return 'OK'
+
 
 Options
 -------
 
-**SENTRY_DSN**  -- Sentry DSN for your application ('')
+Format: Name -- Description (`default value`)
 
-**SENTRY_TAGS** -- Additional tags (None)
+**dsn**  -- Sentry DSN for your application (`''`)
 
-**SENTRY_PROCESSORS** -- Additional processors (None)
+**sdk_optoins** -- Additional options for Sentry SDK Client (`{}`). See https://docs.sentry.io/platforms/python/configuration/options/
 
-**SENTRY_EXCLUDE_PATHS** -- Exclude paths (None)
+**ignore_errors** -- Exception Types to Ignore (`[muffin.ResponseRedirect, muffin.ResponseError]`) 
 
-Manual use
-----------
+You are able to provide the options when you are initiliazing the plugin:
 
-The plugin starts working automaticaly, but you can use it manually:
+.. code-block:: python
 
-.. code:: python
+    sentry.init(app, dsn='DSN_URL')
 
-    @app.register('/my')
-    def my_view(request):
-        # ...
-        yield from app.ps.sentry.captureMessage('Hello from my view')
-        # ...
-        yield from app.ps.sentry.captureException(request=request)
+
+Or setup it inside `Muffin.Application` config using the `SENTRY_` prefix:
+
+.. code-block:: python
+
+   SENTRY_DSN = 'DSN_URL'
+
+`Muffin.Application` configuration options are case insensetive
 
 .. _bugtracker:
 
@@ -98,17 +136,11 @@ License
 
 Licensed under a `MIT license`_.
 
-If you wish to express your appreciation for the project, you are welcome to send
-a postcard to: ::
-
-    Kirill Klenov
-    pos. Severny 8-3
-    MO, Istra, 143500
-    Russia
-
 .. _links:
 
 
 .. _klen: https://github.com/klen
+.. _Muffin: https://github.com/klen/muffin
+.. _Sentry: https://sentry.io/
 
 .. _MIT license: http://opensource.org/licenses/MIT

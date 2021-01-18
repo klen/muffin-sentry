@@ -1,35 +1,64 @@
-import mock
+from unittest import mock
+
 import muffin
 import pytest
-import asyncio
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(params=[
+    pytest.param('asyncio'),
+    pytest.param('trio'),
+], autouse=True)
+def anyio_backend(request):
+    return request.param
+
+
+@pytest.fixture
 def app():
-    app_ = muffin.Application(
-        'sentry', PLUGINS=['muffin_sentry'], SENTRY_DSN="http://public:secret@example.com/1"
-    )
+    import muffin_sentry
 
-    @app_.register('/success')
-    def success(request):
-        return 'OK'
+    app = muffin.Application('sentry', SENTRY_DSN="http://public:secret@example.com/1")
 
-    @app_.register('/error')
-    def error(request):
-        raise Exception('Unhandled exception')
+    sentry = muffin_sentry.Plugin(app)
+    assert sentry.app
 
-    return app_
+    return app
 
 
 async def test_muffin_sentry(app, client):
-    assert app.ps.sentry
+    sentry = app.plugins['sentry']
+    assert sentry
 
-    resp = await client.get('/success')
-    assert resp.status == 200
+    @app.route('/success')
+    async def success(request):
+        return 'OK'
 
-    with mock.patch.object(app.ps.sentry.client, 'send') as mocked:
-        resp = await client.get('/error')
-        assert resp.status == 500
+    res = await client.get('/success')
+    assert res.status_code == 200
 
-    assert mocked.called
-    assert mocked.call_args[1]['request']
+    @app.route('/error')
+    async def error(request):
+        raise Exception('Unhandled exception')
+
+    with mock.patch('sentry_sdk.transport.HttpTransport.capture_event') as mocked:
+        res = await client.get('/error')
+        assert res.status_code == 500
+        assert mocked.called
+        (event,), _ = mocked.call_args
+        assert event['request']
+        assert event['request']['url'] == 'http://localhost/error'
+
+        @app.route('/scope')
+        async def scope(request):
+            scope = sentry.current_scope.get()
+            scope.set_tag('tests', 'passed')
+            scope.set_user({'id': '1', 'email': 'test@test.com'})
+            app.plugins['sentry'].captureMessage('tests')
+            return 'OK'
+
+        res = await client.get('/scope')
+        assert res.status_code == 200
+        assert mocked.called
+        (event,), _ = mocked.call_args
+        assert event['request']
+        assert event['tags']
+        assert event['user']
