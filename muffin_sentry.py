@@ -10,7 +10,7 @@ from sentry_sdk import init as sentry_init, Hub as SentryHub
 # Package information
 # ===================
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __project__ = "muffin-sentry"
 __author__ = "Kirill Klenov <horneds@gmail.com>"
 __license__ = "MIT"
