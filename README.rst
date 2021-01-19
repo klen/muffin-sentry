@@ -84,13 +84,13 @@ Usage
 Options
 -------
 
-Format: Name -- Description (`default value`)
+Format: ``Name`` -- Description (``default value``)
 
-**dsn**  -- Sentry DSN for your application (`''`)
+``dsn``  -- Sentry DSN for your application (``''``)
 
-**sdk_optoins** -- Additional options for Sentry SDK Client (`{}`). See https://docs.sentry.io/platforms/python/configuration/options/
+``sdk_options`` -- Additional options for Sentry SDK Client (``{}``). See https://docs.sentry.io/platforms/python/configuration/options/
 
-**ignore_errors** -- Exception Types to Ignore (`[muffin.ResponseRedirect, muffin.ResponseError]`) 
+``ignore_errors`` -- Exception Types to Ignore (``[muffin.ResponseRedirect, muffin.ResponseError]``) 
 
 You are able to provide the options when you are initiliazing the plugin:
 
@@ -99,7 +99,7 @@ You are able to provide the options when you are initiliazing the plugin:
     sentry.init(app, dsn='DSN_URL')
 
 
-Or setup it inside `Muffin.Application` config using the `SENTRY_` prefix:
+Or setup it inside ``Muffin.Application`` config using the ``SENTRY_`` prefix:
 
 .. code-block:: python
 
