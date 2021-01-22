@@ -29,9 +29,9 @@ class Plugin(BasePlugin):
     }
     current_scope = ContextVar('sentry_scope', default=None)
 
-    def init(self, app, **options):
+    def setup(self, app, **options):
         """Initialize Sentry Client."""
-        super().init(app, **options)
+        super().setup(app, **options)
 
         if not self.cfg.dsn:
             return
