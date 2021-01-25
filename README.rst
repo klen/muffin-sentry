@@ -51,7 +51,7 @@ Usage
     # Initialize the plugin
     # As alternative: jinja2 = Jinja2(app, **options)
     sentry = muffin_sentry.Plugin()
-    sentry.init(app, dsn="DSN_URL")
+    sentry.setup(app, dsn="DSN_URL")
 
     # Use it inside your handlers
 
@@ -96,7 +96,7 @@ You are able to provide the options when you are initiliazing the plugin:
 
 .. code-block:: python
 
-    sentry.init(app, dsn='DSN_URL')
+    sentry.setup(app, dsn='DSN_URL')
 
 
 Or setup it inside ``Muffin.Application`` config using the ``SENTRY_`` prefix:
