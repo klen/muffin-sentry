@@ -1,10 +1,13 @@
 """Sentry integration to Muffin framework."""
 from contextvars import ContextVar
 from functools import partial
+import typing as t
 
-from muffin import ResponseError, ResponseRedirect
+from asgi_tools._types import Receive, Send
+from asgi_tools.middleware import ASGIApp
+from muffin import ResponseError, ResponseRedirect, Application, Request
 from muffin.plugin import BasePlugin
-from sentry_sdk import init as sentry_init, Hub as SentryHub
+from sentry_sdk import init as sentry_init, Hub as SentryHub, Scope as SentryScope
 
 
 # Package information
@@ -27,9 +30,9 @@ class Plugin(BasePlugin):
         'sdk_options': {},  # See https://docs.sentry.io/platforms/python/configuration/options/
         'ignore_errors': (ResponseError, ResponseRedirect),
     }
-    current_scope = ContextVar('sentry_scope', default=None)
+    current_scope: ContextVar[t.Optional[SentryScope]] = ContextVar('sentry_scope', default=None)
 
-    def setup(self, app, **options):
+    def setup(self, app: Application, **options):
         """Initialize Sentry Client."""
         super().setup(app, **options)
 
@@ -42,7 +45,7 @@ class Plugin(BasePlugin):
         # Install the middleware
         app.middleware(self.__middleware)
 
-    async def __middleware(self, handler, request, receive, send):
+    async def __middleware(self, handler: ASGIApp, request: Request, receive: Receive, send: Send):
         """Capture exceptions to Sentry."""
         with SentryHub(SentryHub.current) as hub:
             with hub.configure_scope() as scope:
@@ -58,17 +61,18 @@ class Plugin(BasePlugin):
                         hub.capture_exception(exc)
                     raise
 
-    def prepareData(self, event, hint, request=None):
+    def prepareData(self, event: t.Dict, hint: t.Dict, request: Request = None) -> t.Dict:
         """Prepare data before send it to Sentry."""
-        event['request'] = {
-            'url': "%s://%s%s" % (request.url.scheme, request.url.host, request.url.path),
-            'query_string': request.url.query_string,
-            'method': request.method,
-            'headers': dict(request.headers),
-        }
+        if request:
+            event['request'] = {
+                'url': "%s://%s%s" % (request.url.scheme, request.url.host, request.url.path),
+                'query_string': request.url.query_string,
+                'method': request.method,
+                'headers': dict(request.headers),
+            }
 
-        if request.get('client'):
-            event["request"]["env"] = {"REMOTE_ADDR": request.client[0]}
+            if request.get('client'):
+                event["request"]["env"] = {"REMOTE_ADDR": request.client[0]}
 
         return event
 
