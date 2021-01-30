@@ -13,7 +13,7 @@ from sentry_sdk import init as sentry_init, Hub as SentryHub, Scope as SentrySco
 # Package information
 # ===================
 
-__version__ = "0.4.2"
+__version__ = "0.5.0"
 __project__ = "muffin-sentry"
 __author__ = "Kirill Klenov <horneds@gmail.com>"
 __license__ = "MIT"
