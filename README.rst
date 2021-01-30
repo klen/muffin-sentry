@@ -15,6 +15,10 @@ Muffin-Sentry
     :target: https://pypi.org/project/muffin-sentry/
     :alt: PYPI Version
 
+.. image:: https://img.shields.io/pypi/pyversions/muffin-sentry
+    :target: https://pypi.org/project/muffin-sentry/
+    :alt: Python Versions
+
 .. _contents:
 
 .. contents::
