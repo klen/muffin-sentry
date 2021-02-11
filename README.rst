@@ -88,13 +88,13 @@ Usage
 Options
 -------
 
-Format: ``Name`` -- Description (``default value``)
-
-``dsn``  -- Sentry DSN for your application (``''``)
-
-``sdk_options`` -- Additional options for Sentry SDK Client (``{}``). See https://docs.sentry.io/platforms/python/configuration/options/
-
-``ignore_errors`` -- Exception Types to Ignore (``[muffin.ResponseRedirect, muffin.ResponseError]``) 
+=========================== ======================================= =========================== 
+Name                        Default value                           Desctiption
+--------------------------- --------------------------------------- ---------------------------
+**dsn**                     ``""``                                  Sentry DSN for your application
+**sdk_options**             ``{}``                                  Additional options for Sentry SDK Client. See https://docs.sentry.io/platforms/python/configuration/options/
+**ignore_errors**           ``[ResponseError, ResponseRedirect]``   Exception Types to Ignore
+=========================== ======================================= =========================== 
 
 You are able to provide the options when you are initiliazing the plugin:
 
@@ -109,7 +109,7 @@ Or setup it inside ``Muffin.Application`` config using the ``SENTRY_`` prefix:
 
    SENTRY_DSN = 'DSN_URL'
 
-`Muffin.Application` configuration options are case insensetive
+``Muffin.Application`` configuration options are case insensitive
 
 .. _bugtracker:
 
