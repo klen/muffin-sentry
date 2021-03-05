@@ -8,7 +8,7 @@ import pytest
 def app():
     import muffin_sentry
 
-    app = muffin.Application('sentry', SENTRY_DSN="http://public:secret@example.com/1")
+    app = muffin.Application(SENTRY_DSN="http://public:secret@example.com/1")
 
     sentry = muffin_sentry.Plugin(app)
     assert sentry.app
