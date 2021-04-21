@@ -1,10 +1,9 @@
 """Sentry integration to Muffin framework."""
+import typing as t
 from contextvars import ContextVar
 from functools import partial
-import typing as t
 
-from asgi_tools._types import Receive, Send
-from asgi_tools.middleware import ASGIApp
+from asgi_tools.typing import Receive, Send, ASGIApp
 from muffin import ResponseError, ResponseRedirect, Application, Request
 from muffin.plugin import BasePlugin
 from sentry_sdk import init as sentry_init, Hub as SentryHub, Scope as SentryScope
