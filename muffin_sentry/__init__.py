@@ -5,7 +5,7 @@ from functools import partial
 
 from asgi_tools.typing import Receive, Send, ASGIApp
 from muffin import ResponseError, ResponseRedirect, Application, Request
-from muffin.plugin import BasePlugin
+from muffin.plugins import BasePlugin
 from sentry_sdk import init as sentry_init, Hub as SentryHub, Scope as SentryScope
 
 
