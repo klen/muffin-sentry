@@ -6,7 +6,7 @@ from functools import partial
 from asgi_tools.typing import Receive, Send, ASGIApp
 from muffin import ResponseError, ResponseRedirect, Application, Request
 from muffin.plugins import BasePlugin
-from sentry_sdk import init as sentry_init, Hub as SentryHub, Scope as SentryScope
+from sentry_sdk import init as sentry_init, Hub, Scope as SentryScope, start_transaction
 
 
 # Package information
@@ -39,14 +39,14 @@ class Plugin(BasePlugin):
             return
 
         # Setup Sentry
-        sentry_init(dsn=self.cfg.dsn)
+        sentry_init(dsn=self.cfg.dsn, **self.cfg.sdk_options)
 
         # Install the middleware
         app.middleware(self.__middleware)
 
     async def __middleware(self, handler: ASGIApp, request: Request, receive: Receive, send: Send):
         """Capture exceptions to Sentry."""
-        with SentryHub(SentryHub.current) as hub:
+        with start_transaction(), Hub(Hub.current) as hub:
             with hub.configure_scope() as scope:
                 self.current_scope.set(scope)
                 processor = partial(self.prepareData, request=request)
@@ -77,10 +77,10 @@ class Plugin(BasePlugin):
 
     def captureException(self, *args, **kwargs):
         """Capture exception."""
-        with SentryHub(SentryHub.current, self.current_scope.get()) as hub:
+        with Hub(Hub.current, self.current_scope.get()) as hub:
             return hub.capture_exception(*args, **kwargs)
 
     def captureMessage(self, *args, **kwargs):
         """Capture message."""
-        with SentryHub(SentryHub.current, self.current_scope.get()) as hub:
+        with Hub(Hub.current, self.current_scope.get()) as hub:
             return hub.capture_message(*args, **kwargs)
