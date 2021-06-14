@@ -6,7 +6,8 @@ from functools import partial
 from asgi_tools.typing import Receive, Send, ASGIApp
 from muffin import ResponseError, ResponseRedirect, Application, Request
 from muffin.plugins import BasePlugin
-from sentry_sdk import init as sentry_init, Hub, Scope as SentryScope, start_transaction
+from sentry_sdk import init as sentry_init, Hub, Scope as SentryScope
+from sentry_sdk.tracing import Transaction
 
 
 # Package information
@@ -16,6 +17,10 @@ __version__ = "0.5.8"
 __project__ = "muffin-sentry"
 __author__ = "Kirill Klenov <horneds@gmail.com>"
 __license__ = "MIT"
+
+
+TPROCESSOR = t.Callable[[t.Dict, t.Dict, Request], t.Dict]
+TVPROCESSOR = t.TypeVar('TVPROCESSOR', bound=TPROCESSOR)
 
 
 class Plugin(BasePlugin):
@@ -30,6 +35,11 @@ class Plugin(BasePlugin):
         'ignore_errors': (ResponseError, ResponseRedirect),
     }
     current_scope: ContextVar[t.Optional[SentryScope]] = ContextVar('sentry_scope', default=None)
+
+    def __init__(self, *args, **kwargs):
+        """Initialize the plugin."""
+        super(Plugin, self).__init__(*args, **kwargs)
+        self.processors: t.List[TPROCESSOR] = []
 
     def setup(self, app: Application, **options):
         """Initialize Sentry Client."""
@@ -46,25 +56,36 @@ class Plugin(BasePlugin):
 
     async def __middleware(self, handler: ASGIApp, request: Request, receive: Receive, send: Send):
         """Capture exceptions to Sentry."""
-        with start_transaction(), Hub(Hub.current) as hub:
-            with hub.configure_scope() as scope:
-                self.current_scope.set(scope)
-                processor = partial(self.prepareData, request=request)
-                scope.add_event_processor(processor)
+        hub = Hub(Hub.current)
+        with hub.configure_scope() as scope:
+            scope.clear_breadcrumbs()
+            scope._name = "muffin"
+            self.current_scope.set(scope)
+            scope.add_event_processor(partial(self.processData, request=request))
 
+            with hub.start_transaction(Transaction.continue_from_headers(
+                        request.headers, op=f"{request.scope['type']}.muffin"),
+                        custom_sampling_context={'asgi_scope': scope}
+                    ):
                 try:
                     return await handler(request, receive, send)
 
                 except Exception as exc:
                     if type(exc) not in self.cfg.ignore_errors:
                         hub.capture_exception(exc)
-                    raise
+                    raise exc from None
 
-    def prepareData(self, event: t.Dict, hint: t.Dict, request: Request = None) -> t.Dict:
+    def processor(self, fn: TVPROCESSOR) -> TVPROCESSOR:
+        """Register a custom processor."""
+        self.processors.append(fn)
+        return fn
+
+    def processData(self, event: t.Dict, hint: t.Dict, request: Request) -> t.Dict:
         """Prepare data before send it to Sentry."""
         if request:
+            url = request.url
             event['request'] = {
-                'url': "%s://%s%s" % (request.url.scheme, request.url.host, request.url.path),
+                'url': f"{url.scheme}://{url.host}{url.path}",
                 'query_string': request.url.query_string,
                 'method': request.method,
                 'headers': dict(request.headers),
@@ -72,6 +93,9 @@ class Plugin(BasePlugin):
 
             if request.get('client'):
                 event["request"]["env"] = {"REMOTE_ADDR": request.client[0]}
+
+        for processor in self.processors:
+            event = processor(event, hint, request)
 
         return event
 
