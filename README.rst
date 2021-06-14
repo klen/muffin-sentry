@@ -57,6 +57,13 @@ Usage
     sentry = muffin_sentry.Plugin()
     sentry.setup(app, dsn="DSN_URL")
 
+    # Setup custom request processors (coroutines are not supported)
+    @sentry.processor
+    def user_scope(event, hint, request):
+        if request.user:
+            event['user'] = request.user.email
+        return event
+
     # Use it inside your handlers
 
     # The exception will be send to Sentry

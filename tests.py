@@ -1,4 +1,5 @@
 from unittest import mock
+import sentry_sdk
 
 import muffin
 import pytest
@@ -10,7 +11,8 @@ def app():
 
     app = muffin.Application(SENTRY_DSN="http://public:secret@example.com/1")
 
-    sentry = muffin_sentry.Plugin(app)
+    sentry = muffin_sentry.Plugin(app, sdk_options={
+        'environment': 'tests', 'release': muffin_sentry.__version__})
     assert sentry.app
 
     return app
@@ -19,6 +21,10 @@ def app():
 async def test_muffin_sentry(app, client):
     sentry = app.plugins['sentry']
     assert sentry
+
+    hub = sentry_sdk.Hub.current
+    assert hub.client.options['release']
+    assert hub.client.options['environment'] == 'tests'
 
     @app.route('/success')
     async def success(request):
@@ -31,6 +37,12 @@ async def test_muffin_sentry(app, client):
     async def error(request):
         raise Exception('Unhandled exception')
 
+    @sentry.processor
+    def user(event, hint, request):
+        if hasattr(request, 'user'):
+            event['user'] = request.user
+        return event
+
     with mock.patch('sentry_sdk.transport.HttpTransport.capture_event') as mocked:
         res = await client.get('/error')
         assert res.status_code == 500
@@ -41,9 +53,9 @@ async def test_muffin_sentry(app, client):
 
         @app.route('/scope')
         async def scope(request):
+            request.user = {'id': '1', 'email': 'test@test.com'}
             scope = sentry.current_scope.get()
             scope.set_tag('tests', 'passed')
-            scope.set_user({'id': '1', 'email': 'test@test.com'})
             app.plugins['sentry'].captureMessage('tests')
             return 'OK'
 
