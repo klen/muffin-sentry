@@ -24,7 +24,6 @@ TVPROCESSOR = t.TypeVar('TVPROCESSOR', bound=TPROCESSOR)
 
 
 class Plugin(BasePlugin):
-
     """Setup Sentry and send exceptions and messages."""
 
     name = 'sentry'
@@ -51,8 +50,10 @@ class Plugin(BasePlugin):
         # Setup Sentry
         sentry_init(dsn=self.cfg.dsn, **self.cfg.sdk_options)
 
+    def startup(self):
+        """Install the middleware. It should work first as possible."""
         # Install the middleware
-        app.middleware(self.__middleware)
+        self.app.middleware(self.__middleware)
 
     async def __middleware(self, handler: ASGIApp, request: Request, receive: Receive, send: Send):
         """Capture exceptions to Sentry."""

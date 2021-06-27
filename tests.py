@@ -37,11 +37,20 @@ async def test_muffin_sentry(app, client):
     async def error(request):
         raise Exception('Unhandled exception')
 
+    @app.middleware
+    async def md(handler, request, receive, send):
+        """Test middleware errors."""
+        if 'md_error' in request.query:
+            raise Exception('from middleware')
+        return await handler(request, receive, send)
+
     @sentry.processor
     def user(event, hint, request):
         if hasattr(request, 'user'):
             event['user'] = request.user
         return event
+
+    await app.lifespan.run('startup')
 
     with mock.patch('sentry_sdk.transport.HttpTransport.capture_event') as mocked:
         res = await client.get('/error')
@@ -66,3 +75,11 @@ async def test_muffin_sentry(app, client):
         assert event['request']
         assert event['tags']
         assert event['user']
+
+        mocked.reset_mock()
+
+        res = await client.get('/success?md_error=1')
+        assert res.status_code == 500
+        assert mocked.called
+        (event,), _ = mocked.call_args
+        assert event['exception']['values'][0]['mechanism'] is None
