@@ -51,7 +51,7 @@ class Plugin(BasePlugin):
         # Setup Sentry
         sentry_init(dsn=self.cfg.dsn, **self.cfg.sdk_options)
 
-    async def middleware(self, handler: ASGIApp, request: Request, receive: Receive, send: Send):
+    async def middleware(self, handler: ASGIApp, request: Request, receive: Receive, send: Send):  # type: ignore
         """Capture exceptions to Sentry."""
         hub = Hub(Hub.current)
         with hub.configure_scope() as scope:
