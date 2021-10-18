@@ -13,7 +13,7 @@ from sentry_sdk.tracing import Transaction
 # Package information
 # ===================
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __project__ = "muffin-sentry"
 __author__ = "Kirill Klenov <horneds@gmail.com>"
 __license__ = "MIT"
