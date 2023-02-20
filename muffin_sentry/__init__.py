@@ -1,8 +1,7 @@
 """Sentry integration to Muffin framework."""
-from collections.abc import Callable
 from contextvars import ContextVar
 from functools import partial
-from typing import Dict, List, Optional, TypeVar
+from typing import Callable, Dict, List, Optional, TypeVar
 
 from asgi_tools.types import TASGIApp, TASGIReceive, TASGISend
 from muffin import Application, Request, ResponseError, ResponseRedirect
