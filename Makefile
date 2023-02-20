@@ -46,7 +46,7 @@ major:
 #  Development
 # =============
 
-$(VIRTUAL_ENV): setup.cfg
+$(VIRTUAL_ENV): requirements/requirements.txt requirements/requirements-tests.txt
 	@[ -d $(VIRTUAL_ENV) ] || virtualenv --no-site-packages --python=python3 $(VIRTUAL_ENV)
 	@$(VIRTUAL_ENV)/bin/pip install -e .[tests]
 	@touch $(VIRTUAL_ENV)

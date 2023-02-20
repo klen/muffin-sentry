@@ -1,2 +1,2 @@
-muffin      >= 0.85.0
+muffin      >= 0.88.1
 sentry-sdk  >= 1.4.3
