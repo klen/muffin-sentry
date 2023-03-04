@@ -30,6 +30,6 @@ repos:
       pass_filenames: false
     - id: run-tests
       name: Run tests
-      entry: pytest tests
+      entry: pytest tests.py
       language: system
       pass_filenames: false

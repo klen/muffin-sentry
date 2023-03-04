@@ -87,3 +87,6 @@ async def test_muffin_sentry(app, client):
         assert mocked.called
         (event,), _ = mocked.call_args
         assert event["exception"]["values"][0]["mechanism"] is None
+
+
+# ruff: noqa: TRY002, ARG001
