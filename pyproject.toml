@@ -1,6 +1,6 @@
 [project]
 name = "muffin-sentry"
-version = "1.4.1"
+version = "1.4.2"
 description = "Sentry Integration for Muffin framework"
 readme = "README.rst"
 requires-python = ">=3.8"
