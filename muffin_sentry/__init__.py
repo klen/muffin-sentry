@@ -1,9 +1,10 @@
 """Sentry integration to Muffin framework."""
+from __future__ import annotations
+
 from contextvars import ContextVar
 from functools import partial
-from typing import Callable, Dict, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar
 
-from asgi_tools.types import TASGIApp, TASGIReceive, TASGISend
 from muffin import Application, Request, ResponseError, ResponseRedirect
 from muffin.plugins import BasePlugin
 from sentry_sdk import Hub
@@ -11,14 +12,8 @@ from sentry_sdk import Scope as SentryScope
 from sentry_sdk import init as sentry_init
 from sentry_sdk.tracing import Transaction
 
-# Package information
-# ===================
-
-__version__ = "1.4.1"
-__project__ = "muffin-sentry"
-__author__ = "Kirill Klenov <horneds@gmail.com>"
-__license__ = "MIT"
-
+if TYPE_CHECKING:
+    from asgi_tools.types import TASGIApp, TASGIReceive, TASGISend
 
 TProcess = Callable[[Dict, Dict, Request], Dict]
 TVProcess = TypeVar("TVProcess", bound=TProcess)
@@ -36,7 +31,7 @@ class Plugin(BasePlugin):
         "ignore_errors": (ResponseError, ResponseRedirect),
     }
     current_scope: ContextVar[Optional[SentryScope]] = ContextVar(
-        "sentry_scope", default=None
+        "sentry_scope", default=None,
     )
     processors: List[TProcess]
 
@@ -55,7 +50,7 @@ class Plugin(BasePlugin):
         # Setup Sentry
         sentry_init(dsn=self.cfg.dsn, **self.cfg.sdk_options)
 
-    async def middleware(  # type: ignore
+    async def middleware(  # type: ignore[override]
         self,
         handler: TASGIApp,
         request: Request,
@@ -68,11 +63,11 @@ class Plugin(BasePlugin):
             scope.clear_breadcrumbs()
             scope._name = "muffin"
             self.current_scope.set(scope)
-            scope.add_event_processor(partial(self.processData, request=request))
+            scope.add_event_processor(partial(self.process_data, request=request))
 
             with hub.start_transaction(
                 Transaction.continue_from_headers(
-                    request.headers, op=f"{request.scope['type']}.muffin"
+                    request.headers, op=f"{request.scope['type']}.muffin",
                 ),
                 custom_sampling_context={"asgi_scope": scope},
             ):
@@ -89,7 +84,7 @@ class Plugin(BasePlugin):
         self.processors.append(fn)
         return fn
 
-    def processData(self, event: Dict, hint: Dict, request: Request) -> Dict:
+    def process_data(self, event: Dict, hint: Dict, request: Request) -> Dict:
         """Prepare data before send it to Sentry."""
         if request:
             url = request.url
@@ -108,12 +103,12 @@ class Plugin(BasePlugin):
 
         return event
 
-    def captureException(self, *args, **kwargs):
+    def capture_exception(self, *args, **kwargs):
         """Capture exception."""
         with Hub(Hub.current, self.current_scope.get()) as hub:
             return hub.capture_exception(*args, **kwargs)
 
-    def captureMessage(self, *args, **kwargs):
+    def capture_message(self, *args, **kwargs):
         """Capture message."""
         with Hub(Hub.current, self.current_scope.get()) as hub:
             return hub.capture_message(*args, **kwargs)

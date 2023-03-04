@@ -1,4 +1,4 @@
-VIRTUAL_ENV ?= env
+VIRTUAL_ENV ?= .venv
 
 all: $(VIRTUAL_ENV)
 
@@ -46,9 +46,10 @@ major:
 #  Development
 # =============
 
-$(VIRTUAL_ENV): requirements/requirements.txt requirements/requirements-tests.txt
-	@[ -d $(VIRTUAL_ENV) ] || virtualenv --no-site-packages --python=python3 $(VIRTUAL_ENV)
-	@$(VIRTUAL_ENV)/bin/pip install -e .[tests]
+$(VIRTUAL_ENV): pyproject.toml
+	@[ -d $(VIRTUAL_ENV) ] || python -m venv $(VIRTUAL_ENV)
+	@$(VIRTUAL_ENV)/bin/pip install -e .[tests,dev]
+	@$(VIRTUAL_ENV)/bin/pre-commit install --hook-type pre-push
 	@touch $(VIRTUAL_ENV)
 
 .PHONY: t test

@@ -1,17 +1,19 @@
+from importlib import metadata
 from unittest import mock
 
 import muffin
 import pytest
 
 
-@pytest.fixture
+@pytest.fixture()
 def app():
     import muffin_sentry
 
     app = muffin.Application(SENTRY_DSN="http://public:secret@example.com/1")
+    version = metadata.version("muffin-sentry")
 
     sentry = muffin_sentry.Plugin(
-        app, sdk_options={"environment": "tests", "release": muffin_sentry.__version__}
+        app, sdk_options={"environment": "tests", "release": version},
     )
     assert sentry.app
 
@@ -67,7 +69,7 @@ async def test_muffin_sentry(app, client):
             request["user"] = {"id": "1", "email": "test@test.com"}
             scope = sentry.current_scope.get()
             scope.set_tag("tests", "passed")
-            app.plugins["sentry"].captureMessage("tests")
+            app.plugins["sentry"].capture_message("tests")
             return "OK"
 
         res = await client.get("/scope")
