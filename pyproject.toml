@@ -1,11 +1,12 @@
-[project]
+[tool.poetry]
 name = "muffin-sentry"
 version = "1.4.2"
 description = "Sentry Integration for Muffin framework"
 readme = "README.rst"
-requires-python = ">=3.8"
-license = {"text" = "MIT License"}
-authors = [{ name = "Kirill Klenov", email = "horneds@gmail.com" }]
+license = "MIT"
+authors = ["Kirill Klenov <horneds@gmail.com>"]
+homepage = "https://github.com/klen/muffin-sentry"
+repository = "https://github.com/klen/muffin-sentry"
 keywords = ["sentry", "asyncio", "trio", "asgi", "muffin"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -21,44 +22,23 @@ classifiers = [
   "Framework :: AsyncIO",
   "Framework :: Trio",
 ]
-dependencies = [
-  "muffin >= 0.92",
-  "sentry-sdk >= 1.4.3",
-]
 
-[project.urls]
-homepage = "https://github.com/klen/muffin-sentry"
-repository = "https://github.com/klen/muffin-sentry"
-changelog = "https://raw.githubusercontent.com/klen/muffin-sentry/master/CHANGELOG.md"
+[tool.poetry.dependencies]
+python = "^3.8"
+muffin = "^0"
+sentry-sdk = "*"
 
-[project.optional-dependencies]
-tests = [
-  "pytest",
-  "pytest-aio[curio,trio]",
-  "pytest-mypy",
-  "ruff",
-]
-dev = ["pre-commit", "refurb", "bump2version"]
-yaml = ["pyyaml"]
-example = ["uvicorn", "muffin-peewee-aio", "marshmallow-peewee"]
-peewee = [
-    "muffin-peewee-aio >= 0.2.2",
-    "marshmallow-peewee >= 3.2.0",
-]
-sqlalchemy = [
-    "muffin-databases >= 0.3.2",
-    "marshmallow-sqlalchemy",
-    "sqlalchemy",
-]
-
-[tool.setuptools]
-packages = ['muffin_sentry']
-
-[tool.setuptools.package-data]
-muffin_sentry = ["py.typed"]
+[tool.poetry.group.dev.dependencies]
+black = "*"
+ipdb = "*"
+pre-commit = "*"
+pytest = "*"
+pytest-aio = { version = "*", extras = ["curio", "trio"] }
+pytest-mypy = "*"
+ruff = "*"
 
 [tool.pytest.ini_options]
-addopts = "-xsv"
+addopts = "-lxsv"
 log_cli = true
 
 [tool.mypy]
@@ -89,4 +69,28 @@ line-length = 100
 target-version = "py38"
 exclude = [".venv", "docs", "examples"]
 select = ["ALL"]
-ignore = ["D", "UP", "ANN", "DJ", "EM", "RSE", "SLF", "RET", "S101", "PLR2004", "PLR0912", "N804", "A003", "TRY003"]
+ignore = [
+  "D",
+  "UP",
+  "ANN",
+  "DJ",
+  "EM",
+  "RSE",
+  "SLF",
+  "RET",
+  "S101",
+  "PLR2004",
+  "PLR0912",
+  "N804",
+  "A003",
+  "TRY003",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+preview = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

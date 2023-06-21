@@ -11,6 +11,7 @@ on:
     branches: [master, develop]
 
 jobs:
+
   tests:
     runs-on: ubuntu-latest
     strategy:
@@ -19,26 +20,27 @@ jobs:
         python-version: ['3.8', '3.9', '3.10', '3.11']
 
     steps:
-    - name: Checkout changes
-      uses: actions/checkout@main
+    - uses: actions/checkout@main
+    - name: install poetry
+      run: pipx install poetry
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@main
       with:
-        cache: pip
+        cache: poetry
         python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      run: |
-        python -m pip install .[tests]
+    - name: Install requirements
+      run: poetry install --with dev
 
     - name: Check code
-      run: |
-        ruff muffin_sentry
+      run: poetry run ruff muffin_sentry
+
+    - name: Check typing
+      run: poetry run mypy
 
     - name: Test with pytest
-      run: |
-        pytest tests.py
+      run: poetry run pytest tests.py
 
   notify:
     runs-on: ubuntu-latest

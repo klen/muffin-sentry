@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from contextvars import ContextVar
 from functools import partial
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Callable, ClassVar, Dict, List, Optional, TypeVar
 
 from muffin import Application, Request, ResponseError, ResponseRedirect
 from muffin.plugins import BasePlugin
@@ -25,13 +25,14 @@ class Plugin(BasePlugin):
 
     name = "sentry"
     client = None
-    defaults = {
+    defaults: ClassVar[Dict] = {
         "dsn": "",  # Sentry DSN
         "sdk_options": {},  # See https://docs.sentry.io/platforms/python/configuration/options/
         "ignore_errors": (ResponseError, ResponseRedirect),
     }
     current_scope: ContextVar[Optional[SentryScope]] = ContextVar(
-        "sentry_scope", default=None,
+        "sentry_scope",
+        default=None,
     )
     processors: List[TProcess]
 
@@ -44,11 +45,10 @@ class Plugin(BasePlugin):
         """Initialize Sentry Client."""
         super().setup(app, **options)
 
-        if not self.cfg.dsn:
-            return
-
         # Setup Sentry
-        sentry_init(dsn=self.cfg.dsn, **self.cfg.sdk_options)
+        dsn = self.cfg.dsn
+        if dsn:
+            sentry_init(dsn=dsn, **self.cfg.sdk_options)
 
     async def middleware(  # type: ignore[override]
         self,
@@ -67,7 +67,8 @@ class Plugin(BasePlugin):
 
             with hub.start_transaction(
                 Transaction.continue_from_headers(
-                    request.headers, op=f"{request.scope['type']}.muffin",
+                    request.headers,
+                    op=f"{request.scope['type']}.muffin",
                 ),
                 custom_sampling_context={"asgi_scope": scope},
             ):
@@ -105,10 +106,12 @@ class Plugin(BasePlugin):
 
     def capture_exception(self, *args, **kwargs):
         """Capture exception."""
-        with Hub(Hub.current, self.current_scope.get()) as hub:
-            return hub.capture_exception(*args, **kwargs)
+        if self.cfg.dsn:
+            with Hub(Hub.current, self.current_scope.get()) as hub:
+                return hub.capture_exception(*args, **kwargs)
 
     def capture_message(self, *args, **kwargs):
         """Capture message."""
-        with Hub(Hub.current, self.current_scope.get()) as hub:
-            return hub.capture_message(*args, **kwargs)
+        if self.cfg.dsn:
+            with Hub(Hub.current, self.current_scope.get()) as hub:
+                return hub.capture_message(*args, **kwargs)
