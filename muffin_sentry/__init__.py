@@ -20,13 +20,13 @@ TVProcess = TypeVar("TVProcess", bound=TProcess)
 
 
 class Plugin(BasePlugin):
-
     """Setup Sentry and send exceptions and messages."""
 
     name = "sentry"
     client = None
     defaults: ClassVar[Dict] = {
         "dsn": "",  # Sentry DSN
+        "transaction_style": "url",  # url | endpoint
         "sdk_options": {},  # See https://docs.sentry.io/platforms/python/configuration/options/
         "ignore_errors": (ResponseError, ResponseRedirect),
     }
@@ -59,24 +59,40 @@ class Plugin(BasePlugin):
     ):
         """Capture exceptions to Sentry."""
         hub = Hub(Hub.current)
-        with hub.configure_scope() as scope:
-            scope.clear_breadcrumbs()
-            scope._name = "muffin"
-            self.current_scope.set(scope)
-            scope.add_event_processor(partial(self.process_data, request=request))
+        cfg = self.cfg
+        url = request.url
+        scope = request.scope
+        scope_type = scope["type"]
+        transaction_style = cfg.transaction_style
+        with hub.configure_scope() as sentry_scope:
+            sentry_scope.clear_breadcrumbs()
+            sentry_scope._name = "muffin"
+            self.current_scope.set(sentry_scope)
+            sentry_scope.add_event_processor(partial(self.process_data, request=request))
+            trans_name = url.path
+            if transaction_style == "endpoint":
+                endpoint = scope.get("endpoint")
+                trans_name = endpoint.__qualname__ if endpoint else trans_name
+
+            trans = Transaction.continue_from_headers(
+                request.headers,
+                op=f"{scope_type}.muffin",
+                name=trans_name,
+                source=transaction_style,
+            )
+            trans.set_tag("asgi.type", scope_type)
 
             with hub.start_transaction(
-                Transaction.continue_from_headers(
-                    request.headers,
-                    op=f"{request.scope['type']}.muffin",
-                ),
-                custom_sampling_context={"asgi_scope": scope},
+                trans,
+                custom_sampling_context={"asgi_scope": sentry_scope},
             ):
                 try:
-                    return await handler(request, receive, send)
+                    response = await handler(request, receive, send)
+                    trans.set_http_status(response.status_code)
+                    return response  # noqa: TRY300
 
                 except Exception as exc:
-                    if type(exc) not in self.cfg.ignore_errors:
+                    if type(exc) not in cfg.ignore_errors:
                         hub.capture_exception(exc)
                     raise exc from None
 
@@ -85,19 +101,20 @@ class Plugin(BasePlugin):
         self.processors.append(fn)
         return fn
 
-    def process_data(self, event: Dict, hint: Dict, request: Request) -> Dict:
+    def process_data(self, event: Dict, hint: Dict, *, request: Request) -> Dict:
         """Prepare data before send it to Sentry."""
         if request:
             url = request.url
+            scope = request.scope
             event["request"] = {
                 "url": f"{url.scheme}://{url.host}{url.path}",
                 "query_string": request.url.query_string,
-                "method": request.method,
+                "method": scope["method"],
                 "headers": dict(request.headers),
             }
 
-            if request.get("client"):
-                event["request"]["env"] = {"REMOTE_ADDR": request.client[0]}
+            if scope.get("client"):
+                event["request"]["env"] = {"REMOTE_ADDR": scope["client"][0]}
 
         for processor in self.processors:
             event = processor(event, hint, request)
@@ -109,9 +126,11 @@ class Plugin(BasePlugin):
         if self.cfg.dsn:
             with Hub(Hub.current, self.current_scope.get()) as hub:
                 return hub.capture_exception(*args, **kwargs)
+        return None
 
     def capture_message(self, *args, **kwargs):
         """Capture message."""
         if self.cfg.dsn:
             with Hub(Hub.current, self.current_scope.get()) as hub:
                 return hub.capture_message(*args, **kwargs)
+        return None
