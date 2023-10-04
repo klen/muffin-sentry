@@ -20,6 +20,7 @@ def sentry(app):
 
     return muffin_sentry.Plugin(
         app,
+        transaction_style="endpoint",
         sdk_options={"environment": "tests", "release": version},
     )
 
@@ -74,8 +75,9 @@ async def test_muffin_sentry(app, client, sentry):
 
     @sentry.processor
     def user(event, hint, request):
-        if hasattr(request, "user"):
-            event["user"] = request.user
+        scope = request.scope
+        if "user" in scope:
+            event["user"] = scope["user"]
         return event
 
     await app.lifespan.run("startup")
@@ -85,6 +87,7 @@ async def test_muffin_sentry(app, client, sentry):
         assert res.status_code == 500
         assert mocked.called
         (event,), _ = mocked.call_args
+        assert event["transaction"] == "/error"
         assert event["request"]
         assert event["request"]["url"] == "http://localhost/error"
 

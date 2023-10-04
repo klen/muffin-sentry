@@ -13,40 +13,40 @@ files = [
 
 [[package]]
 name = "asgi-tools"
-version = "0.75.2"
+version = "0.76.0"
 description = "ASGI Toolkit to build web applications"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "asgi-tools-0.75.2.tar.gz", hash = "sha256:fd6ebe857b7cce0636c94e8578448ea36c3395cc41135e4a07ede3e10d56b0a5"},
-    {file = "asgi_tools-0.75.2-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:2ed6ea19446b829bc0de2409ca14d0b6f1fcca40f4cbe2177cbce77d45682e23"},
-    {file = "asgi_tools-0.75.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:1314fa9b05a3dfd692c0f6fcb9c2c9d1633cd910138cef3a441d4caaa6b18f37"},
-    {file = "asgi_tools-0.75.2-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:278852b8695c1e2ff2f76803e499d90faa4694e6b8392df339b48f9c84a1987e"},
-    {file = "asgi_tools-0.75.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:20b49f655ec7c470c4b043f6eac161f9adb8d03fe6d25345478fb098c5d02c3a"},
-    {file = "asgi_tools-0.75.2-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:a926de8396e27ae1ae28f38b414c7e17a1dbd893a7794c6c5165497e50f22f5d"},
-    {file = "asgi_tools-0.75.2-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:0420cd332a6064a780ae956e4357f3c245ba3a0fe2d42a34d5702709353d5879"},
-    {file = "asgi_tools-0.75.2-cp310-cp310-win_amd64.whl", hash = "sha256:a81d7fe4435e70c4f420eb16c588a60394051b4c2b95db25a751eaea5dafccf5"},
-    {file = "asgi_tools-0.75.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:cbacc2d2aaa45ce4115f62e3d3a7c7d06d77fb4a19454be01a54363fc4fc13fc"},
-    {file = "asgi_tools-0.75.2-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:15f234d2ea12061e1850759239f298cdf1d54577d48ba68be7d2953a1474a9ae"},
-    {file = "asgi_tools-0.75.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:075ad56b0f7648032fce4d16eda56b8ffe0ede0f670b02ebe0ccdde0ff4570ae"},
-    {file = "asgi_tools-0.75.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7580fb13c1402032203257ab35f0e5a44536c2d17dd29532974634278f8ce53b"},
-    {file = "asgi_tools-0.75.2-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:ef8d0728dc55a482c8d3124e6085f569d00ef4cd781647cf6a373ecd10858d66"},
-    {file = "asgi_tools-0.75.2-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:6a63ef550c6597c1ac163c81a9c7a06cae649ab63b5eb2bc50cf5c5e60d51834"},
-    {file = "asgi_tools-0.75.2-cp311-cp311-win_amd64.whl", hash = "sha256:fda79cd69498c0dd721deb1b37673c0b214ab9289c08d015cdb6bd3c0591e289"},
-    {file = "asgi_tools-0.75.2-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:4ccfbf109908c8359934ad936d277eb2d63452236ad77247008e72a8a8150043"},
-    {file = "asgi_tools-0.75.2-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:619662fea367c8d5930105deb8a6c2b34a5998db3f4525ad8451d3e419683c40"},
-    {file = "asgi_tools-0.75.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ee9c3f9b176ed6c632f9b8a195f7c5058fcdef9dd7f19414b34ded8f9a2a1873"},
-    {file = "asgi_tools-0.75.2-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d123684b88f90ff8231a3a21aa30900744076de742d37aabd2347cd8210dcf8b"},
-    {file = "asgi_tools-0.75.2-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:5e05da39e987dff3d7865ad5bf7a414323f5b28f5be3c7b530dfa1825ab4d3bb"},
-    {file = "asgi_tools-0.75.2-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:17f56dfab21cbee270369a38ad9ea4bd93afee6b274c487aa51dea14e4509bf8"},
-    {file = "asgi_tools-0.75.2-cp38-cp38-win_amd64.whl", hash = "sha256:6b31acd437f567de7394e69d5174f8977b8346e8f0ac465fbf1f8e371768864e"},
-    {file = "asgi_tools-0.75.2-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:3ed59530df48dffb60da51868e05904dde63a00863b7a648b1b0363dae0b4330"},
-    {file = "asgi_tools-0.75.2-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:66fc2b2fc408ff32d779dccdd59d70288cd71238664b7a7d19cad8a18fa6cbaf"},
-    {file = "asgi_tools-0.75.2-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:67f8102448d2147629a13122c83928c556c79db40edd2705c57f2599d0cc29a3"},
-    {file = "asgi_tools-0.75.2-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:01d13d0fd4cfc5714fc58bf8e0743c78a145da7607d8d5c43df66dd3b4b34ee3"},
-    {file = "asgi_tools-0.75.2-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:ee648bec9624778cfdb1f00edee0d31f3af5480b22da88001d5689230734b1d2"},
-    {file = "asgi_tools-0.75.2-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:d826461933d19c4d6c6732831b32189ee8f0ad261e55f5bcc589d62004eedb69"},
-    {file = "asgi_tools-0.75.2-cp39-cp39-win_amd64.whl", hash = "sha256:763ef9371bcd4033aca6959585a52c5a540e86eae38816f2624293d69ab2c859"},
+    {file = "asgi-tools-0.76.0.tar.gz", hash = "sha256:dc30ae9fff8e16cdd57d34e0c5cba3321ae67989eaa21b3b94ae88876008d217"},
+    {file = "asgi_tools-0.76.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:fcf736deb7bf1b99e6d81894c99fd00e35f1c2851adf1db6eb7d0911dfbbb121"},
+    {file = "asgi_tools-0.76.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:5feb459a1d03bf0d278cba971206a7243a55a122575945c230fa276b33fd08ae"},
+    {file = "asgi_tools-0.76.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c3e3cba07f89ac41bb7dfb1bcb9fed7127a02146924c12602d6141aecb8ba9fe"},
+    {file = "asgi_tools-0.76.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3941e52a85c11118f84815d351f136c5d2e18123e751e5c9ee6486b7622ffcbd"},
+    {file = "asgi_tools-0.76.0-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:b082efecda027949841db7a5e2a724f04bcc538acde9d8bf87c0eca60d95f310"},
+    {file = "asgi_tools-0.76.0-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:49ba2a4281bc2eec984e967583383e35d4b3d5481123c9ba4bf78d35712c3ff5"},
+    {file = "asgi_tools-0.76.0-cp310-cp310-win_amd64.whl", hash = "sha256:61c216b6053a62ed871c95c92df416f97fd7425453ad742515b61ade1d7ac962"},
+    {file = "asgi_tools-0.76.0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:ddfbf889536c893d070a07b296454d54d7c6ed95424d4bae54b7c079a24bc540"},
+    {file = "asgi_tools-0.76.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:0fa294c6e93761db6337cf485c2a20ab1bf874dba7c47592602d98c22d545dfb"},
+    {file = "asgi_tools-0.76.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:49b00c37bf9539d8852cb8e5c5ed0e91eedfb930155bd159cb4a8f896a9066ad"},
+    {file = "asgi_tools-0.76.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e08b9b381876df9881780b2f0b2c021d70e1fe366f22ad46fc219e9e557b4b98"},
+    {file = "asgi_tools-0.76.0-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:24a4736e9d7acfc560d04d60ef707f88bde5260cf4bbb8a14244c8b81f629896"},
+    {file = "asgi_tools-0.76.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:c32b0f4faf0a6021cc897c1a1284334b8370c87015a869d2507e25e56b8cc69b"},
+    {file = "asgi_tools-0.76.0-cp311-cp311-win_amd64.whl", hash = "sha256:592d176990006c83ea60d3b1cd15f97e83c37476e90704846eeb296272bdd318"},
+    {file = "asgi_tools-0.76.0-cp38-cp38-macosx_10_9_universal2.whl", hash = "sha256:113b0d84105410a78ac50dd5a8a076c234c4156a5eb0f1a4893ec8ac306e9b97"},
+    {file = "asgi_tools-0.76.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:0592ee764c71df9a0b1ef4479376ff7bf591d9dead9564b5bf4624351894bf1d"},
+    {file = "asgi_tools-0.76.0-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:877db6b88e08c685659aa4b59cb002f2c366e8e7eb2f84cacf88032b53fc23cd"},
+    {file = "asgi_tools-0.76.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:306077e705bd6d53acae375b2e42e74bc90cb878c5bdd57c6b64382872ccf484"},
+    {file = "asgi_tools-0.76.0-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:85c45041b680aaeebac6ca571c65386d8c3a66b84a2f54f08cdff6a097f89cb2"},
+    {file = "asgi_tools-0.76.0-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:40fe59b5d6d6c1b61f66819b985bd0a98bb9fabe4b3963d7c2bfebb7114da911"},
+    {file = "asgi_tools-0.76.0-cp38-cp38-win_amd64.whl", hash = "sha256:1c954b09a32c7db621ec826ebd83cf1cd04a1533289b89679d188936b1757c4e"},
+    {file = "asgi_tools-0.76.0-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:0d7cac6c9202f63f332e92775a327356517efd61fcc682269c68b3c145eae4dd"},
+    {file = "asgi_tools-0.76.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:1df1191143c66120c410a306f1ca887ca191e1fcc66f93b5f92a9c220c869856"},
+    {file = "asgi_tools-0.76.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:213fc906c90203fdf08a5157f6e8db0ad969e809fcf0cc4c627e86386bf6cbfa"},
+    {file = "asgi_tools-0.76.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a03f2c0c7772a2c1d900d8b66bbfc92fdf9f3c9314b3cad11dc5c2046703e6d0"},
+    {file = "asgi_tools-0.76.0-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:469f32a1a5b17ad2380e51e2b3ba06c0bcf510de7a6b97b3b9be3ec4e327811e"},
+    {file = "asgi_tools-0.76.0-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:4cb0f30adb0c2208d5ba3700ad7a388b039f363fddfaca32fb221686c4540cbc"},
+    {file = "asgi_tools-0.76.0-cp39-cp39-win_amd64.whl", hash = "sha256:454d0808b8b1b5814c95c3e5773988b3dd08976325241e2a904d9f846bae9d47"},
 ]
 
 [package.dependencies]
@@ -532,13 +532,13 @@ tests = ["pytest", "pytest-mypy"]
 
 [[package]]
 name = "muffin"
-version = "0.99.3"
+version = "0.100.0"
 description = "Muffin is a fast, simple and asyncronous web-framework for Python 3 (asyncio, trio, curio)"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "muffin-0.99.3-py3-none-any.whl", hash = "sha256:40aac647c9db1e41cb782e72ab829c187d71fbde3bcf1227308e1f67052ae09c"},
-    {file = "muffin-0.99.3.tar.gz", hash = "sha256:c104db2f0d2d992b5a8eb38e1f48c5cb99481e4b9e4c2a64915d6eb4c676301c"},
+    {file = "muffin-0.100.0-py3-none-any.whl", hash = "sha256:aeab97ded45f45d4b6c63c665a5babd1405fd2bcbf8fa196fe7c92debff5fb05"},
+    {file = "muffin-0.100.0.tar.gz", hash = "sha256:866ca589d94eb47b6484e4ba9b0306a01b515f45425a69cf106aea803025a90a"},
 ]
 
 [package.dependencies]

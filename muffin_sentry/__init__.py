@@ -10,6 +10,7 @@ from muffin.plugins import BasePlugin
 from sentry_sdk import Hub
 from sentry_sdk import Scope as SentryScope
 from sentry_sdk import init as sentry_init
+from sentry_sdk.sessions import auto_session_tracking
 from sentry_sdk.tracing import Transaction
 
 if TYPE_CHECKING:
@@ -17,6 +18,8 @@ if TYPE_CHECKING:
 
 TProcess = Callable[[Dict, Dict, Request], Dict]
 TVProcess = TypeVar("TVProcess", bound=TProcess)
+
+SENTRY_SCOPE: ContextVar[Optional[SentryScope]] = ContextVar("sentry_scope", default=None)
 
 
 class Plugin(BasePlugin):
@@ -26,20 +29,20 @@ class Plugin(BasePlugin):
     client = None
     defaults: ClassVar[Dict] = {
         "dsn": "",  # Sentry DSN
-        "transaction_style": "url",  # url | endpoint
         "sdk_options": {},  # See https://docs.sentry.io/platforms/python/configuration/options/
         "ignore_errors": (ResponseError, ResponseRedirect),
     }
-    current_scope: ContextVar[Optional[SentryScope]] = ContextVar(
-        "sentry_scope",
-        default=None,
-    )
     processors: List[TProcess]
 
     def __init__(self, *args, **kwargs):
         """Initialize the plugin."""
         super(Plugin, self).__init__(*args, **kwargs)
         self.processors = []
+
+    @property
+    def current_scope(self):
+        """Get current Sentry Scope."""
+        return SENTRY_SCOPE
 
     def setup(self, app: Application, **options):
         """Initialize Sentry Client."""
@@ -63,28 +66,24 @@ class Plugin(BasePlugin):
         url = request.url
         scope = request.scope
         scope_type = scope["type"]
-        transaction_style = cfg.transaction_style
-        with hub.configure_scope() as sentry_scope:
-            sentry_scope.clear_breadcrumbs()
-            sentry_scope._name = "muffin"
-            self.current_scope.set(sentry_scope)
-            sentry_scope.add_event_processor(partial(self.process_data, request=request))
-            trans_name = url.path
-            if transaction_style == "endpoint":
-                endpoint = scope.get("endpoint")
-                trans_name = endpoint.__qualname__ if endpoint else trans_name
+        with auto_session_tracking(hub, session_mode="request"), hub:
+            with hub.configure_scope() as sentry_scope:
+                sentry_scope._name = "muffin"
+                sentry_scope.clear_breadcrumbs()
+                sentry_scope.add_event_processor(partial(self.process_data, request=request))
+                SENTRY_SCOPE.set(sentry_scope)
 
             trans = Transaction.continue_from_headers(
                 request.headers,
+                name=url.path,
+                source="url",
                 op=f"{scope_type}.muffin",
-                name=trans_name,
-                source=transaction_style,
             )
             trans.set_tag("asgi.type", scope_type)
 
             with hub.start_transaction(
                 trans,
-                custom_sampling_context={"asgi_scope": sentry_scope},
+                custom_sampling_context={"asgi_scope": scope},
             ):
                 try:
                     response = await handler(request, receive, send)
@@ -94,7 +93,7 @@ class Plugin(BasePlugin):
                 except Exception as exc:
                     if type(exc) not in cfg.ignore_errors:
                         hub.capture_exception(exc)
-                    raise exc from None
+                    raise exc from exc
 
     def processor(self, fn: TVProcess) -> TVProcess:
         """Register a custom processor."""
@@ -124,13 +123,13 @@ class Plugin(BasePlugin):
     def capture_exception(self, *args, **kwargs):
         """Capture exception."""
         if self.cfg.dsn:
-            with Hub(Hub.current, self.current_scope.get()) as hub:
+            with Hub(Hub.current, SENTRY_SCOPE.get()) as hub:
                 return hub.capture_exception(*args, **kwargs)
         return None
 
     def capture_message(self, *args, **kwargs):
         """Capture message."""
         if self.cfg.dsn:
-            with Hub(Hub.current, self.current_scope.get()) as hub:
+            with Hub(Hub.current, SENTRY_SCOPE.get()) as hub:
                 return hub.capture_message(*args, **kwargs)
         return None
