@@ -22,6 +22,17 @@ TVProcess = TypeVar("TVProcess", bound=TProcess)
 SENTRY_SCOPE: ContextVar[Optional[SentryScope]] = ContextVar("sentry_scope", default=None)
 
 
+class CurrentScope:
+    def __getattr__(self, name):
+        scope = SENTRY_SCOPE.get()
+        if scope:
+            return getattr(scope, name)
+        raise RuntimeError("Sentry scope is not available")
+
+
+SCOPE = CurrentScope()
+
+
 class Plugin(BasePlugin):
     """Setup Sentry and send exceptions and messages."""
 
