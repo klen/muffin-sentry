@@ -25,7 +25,7 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.8"
-muffin = "^0"
+muffin = "^0.100.1"
 sentry-sdk = "*"
 
 [tool.poetry.group.dev.dependencies]
