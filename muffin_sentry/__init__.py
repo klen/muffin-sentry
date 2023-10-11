@@ -1,5 +1,6 @@
 """Sentry integration to Muffin framework."""
 
-from .plugin import Plugin
+from .plugin import SCOPE, Plugin
 
 Sentry = Plugin
+assert SCOPE
