@@ -4,9 +4,9 @@ VIRTUAL_ENV ?= .venv
 #  Development
 # =============
 
-$(VIRTUAL_ENV): poetry.lock
+$(VIRTUAL_ENV): poetry.lock .pre-commit-config.yaml
 	@poetry install --with dev
-	@poetry run pre-commit install --hook-type pre-push
+	@poetry run pre-commit install
 	@touch $(VIRTUAL_ENV)
 
 .PHONY: test
@@ -30,7 +30,7 @@ release:
 	@git checkout develop
 	@git pull
 	@poetry version $(VPART)
-	@git commit -am "Bump version: `poetry version -s`"
+	@git commit -am "build(release): version: `poetry version -s`"
 	@git tag `poetry version -s`
 	@git checkout master
 	@git pull
@@ -48,3 +48,7 @@ patch:
 .PHONY: major
 major:
 	make release VPART=major
+
+.PHONY: v version
+v version:
+	@poetry version -s

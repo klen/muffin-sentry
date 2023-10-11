@@ -1,30 +1,55 @@
+from functools import partial
 from importlib import metadata
 from unittest import mock
 
 import muffin
 import pytest
+from asgi_tools import Request
 
 
 @pytest.fixture()
 def app():
+    return muffin.Application(SENTRY_DSN="http://public:secret@example.com/1")
+
+
+@pytest.fixture()
+def sentry(app):
     import muffin_sentry
 
-    app = muffin.Application(SENTRY_DSN="http://public:secret@example.com/1")
     version = metadata.version("muffin-sentry")
 
-    sentry = muffin_sentry.Plugin(
-        app, sdk_options={"environment": "tests", "release": version},
+    return muffin_sentry.Plugin(
+        app,
+        transaction_style="endpoint",
+        sdk_options={"environment": "tests", "release": version},
     )
-    assert sentry.app
-
-    return app
 
 
-async def test_muffin_sentry(app, client):
+def test_request_processor(sentry, client):
+    request = Request(client.build_scope("/", type="http", method="POST"), lambda: None, lambda: None)  # type: ignore[]
+    processor = partial(sentry.process_data, request=request)
+    assert processor
+
+    event = processor({}, {})
+    assert event
+    assert event == {
+        "request": {
+            "url": "http://localhost/",
+            "query_string": "",
+            "method": "POST",
+            "headers": {
+                "host": "localhost",
+                "user-agent": "ASGI-Tools-Test-Client",
+            },
+            "env": {
+                "REMOTE_ADDR": "127.0.0.1",
+            },
+        },
+    }
+
+
+async def test_muffin_sentry(app, client, sentry):
     import sentry_sdk
-
-    sentry = app.plugins["sentry"]
-    assert sentry
 
     hub = sentry_sdk.Hub.current
     assert hub.client.options["release"]
@@ -50,8 +75,9 @@ async def test_muffin_sentry(app, client):
 
     @sentry.processor
     def user(event, hint, request):
-        if hasattr(request, "user"):
-            event["user"] = request.user
+        scope = request.scope
+        if "user" in scope:
+            event["user"] = scope["user"]
         return event
 
     await app.lifespan.run("startup")
@@ -61,6 +87,7 @@ async def test_muffin_sentry(app, client):
         assert res.status_code == 500
         assert mocked.called
         (event,), _ = mocked.call_args
+        assert event["transaction"] == "/error"
         assert event["request"]
         assert event["request"]["url"] == "http://localhost/error"
 
