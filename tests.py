@@ -17,7 +17,6 @@ def sentry(app):
     import muffin_sentry
 
     version = metadata.version("muffin-sentry")
-
     return muffin_sentry.Plugin(
         app,
         transaction_style="endpoint",
@@ -34,9 +33,9 @@ def test_request_processor(sentry, client):
     assert event
     assert event == {
         "request": {
-            "url": "http://localhost/",
-            "query_string": "",
             "method": "POST",
+            "query_string": "",
+            "url": "http://localhost/",
             "headers": {
                 "host": "localhost",
                 "user-agent": "ASGI-Tools-Test-Client",
@@ -82,11 +81,12 @@ async def test_muffin_sentry(app, client, sentry):
 
     await app.lifespan.run("startup")
 
-    with mock.patch("sentry_sdk.transport.HttpTransport.capture_event") as mocked:
+    with mock.patch("sentry_sdk.transport.HttpTransport.capture_envelope") as mocked:
         res = await client.get("/error")
         assert res.status_code == 500
         assert mocked.called
-        (event,), _ = mocked.call_args
+        env, *_ = mocked.call_args.args[0]
+        event = env.get_event()
         assert event["transaction"] == "/error"
         assert event["request"]
         assert event["request"]["url"] == "http://localhost/error"
@@ -102,17 +102,19 @@ async def test_muffin_sentry(app, client, sentry):
         res = await client.get("/scope")
         assert res.status_code == 200
         assert mocked.called
-        (event,), _ = mocked.call_args
-        assert event["request"]
-        assert event["tags"]
+        env, *_ = mocked.call_args.args[0]
+        event = env.get_event()
         assert event["user"]
+        assert event["tags"]
+        assert event["request"]
 
         mocked.reset_mock()
 
         res = await client.get("/success?md_error=1")
         assert res.status_code == 500
         assert mocked.called
-        (event,), _ = mocked.call_args
+        env, *_ = mocked.call_args.args[0]
+        event = env.get_event()
         assert event["exception"]["values"][0]["mechanism"]
 
 

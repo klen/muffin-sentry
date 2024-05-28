@@ -1,4 +1,5 @@
 """Sentry integration to Muffin framework."""
+
 from __future__ import annotations
 
 from contextvars import ContextVar
@@ -12,11 +13,12 @@ from sentry_sdk import Scope as SentryScope
 from sentry_sdk import init as sentry_init
 from sentry_sdk.sessions import auto_session_tracking
 from sentry_sdk.tracing import Transaction
+from sentry_sdk.types import Event, Hint
 
 if TYPE_CHECKING:
     from asgi_tools.types import TASGIApp, TASGIReceive, TASGISend
 
-TProcess = Callable[[Dict, Dict, Request], Dict]
+TProcess = Callable[[Event, Hint, Request], Optional[Event]]
 TVProcess = TypeVar("TVProcess", bound=TProcess)
 
 SENTRY_SCOPE: ContextVar[Optional[SentryScope]] = ContextVar("sentry_scope", default=None)
@@ -58,12 +60,14 @@ class Plugin(BasePlugin):
     def setup(self, app: Application, **options):
         """Initialize Sentry Client."""
         if not super().setup(app, **options):
-            return
+            return False
 
         # Setup Sentry
         dsn = self.cfg.dsn
         if dsn:
             sentry_init(dsn=dsn, **self.cfg.sdk_options)
+
+        return True
 
     async def middleware(  # type: ignore[override]
         self,
@@ -112,7 +116,7 @@ class Plugin(BasePlugin):
         self.processors.append(fn)
         return fn
 
-    def process_data(self, event: Dict, hint: Dict, *, request: Request) -> Dict:
+    def process_data(self, event: Event, hint: Hint, *, request: Request) -> Optional[Event]:
         """Prepare data before send it to Sentry."""
         if request:
             url = request.url
@@ -128,7 +132,7 @@ class Plugin(BasePlugin):
                 event["request"]["env"] = {"REMOTE_ADDR": scope["client"][0]}
 
         for processor in self.processors:
-            event = processor(event, hint, request)
+            event = processor(event, hint, request) or event
 
         return event
 
