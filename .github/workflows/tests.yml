@@ -34,13 +34,13 @@ jobs:
       run: poetry install --with dev
 
     - name: Check code
-      run: poetry run ruff muffin_sentry
+      run: poetry run ruff check muffin_sentry
 
     - name: Check typing
       run: poetry run mypy
 
     - name: Test with pytest
-      run: poetry run pytest tests.py
+      run: poetry run pytest
 
   notify:
     runs-on: ubuntu-latest
