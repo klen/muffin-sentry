@@ -1,19 +1,20 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+
 fail_fast: true
 default_install_hook_types: [commit-msg, pre-commit, pre-push]
 
 repos:
 
 - repo: https://github.com/qoomon/git-conventional-commits
-  rev: 'v2.6.5'
+  rev: 'v2.6.7'
   hooks:
   - id: conventional-commits
     args: ["-c", ".git-commits.yaml"]
     stages: ["commit-msg"]
 
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.4.0
+  rev: v4.6.0
   hooks:
   - id: check-case-conflict
     stages: ["pre-commit"]
@@ -21,6 +22,7 @@ repos:
     stages: ["pre-commit"]
   - id: check-added-large-files
     stages: ["pre-commit"]
+    args: ['--maxkb=5000']
   - id: check-ast
     stages: ["pre-commit"]
   - id: check-executables-have-shebangs
@@ -39,7 +41,7 @@ repos:
     stages: ["pre-commit"]
 
 - repo: https://github.com/psf/black
-  rev: 23.7.0
+  rev: 24.4.2
   hooks:
   - id: black
     stages: ["pre-commit"]
@@ -48,8 +50,10 @@ repos:
   rev: '1.5.0'
   hooks:
   - id: poetry-check
+    files: ^(.*/)?pyproject\.toml$
     stages: ["pre-commit"]
   - id: poetry-lock
+    files: ^(.*/)?(poetry\.lock|pyproject\.toml)$
     args: ["--no-update"]
     stages: ["pre-commit"]
 
@@ -57,21 +61,24 @@ repos:
   hooks:
   - id: ruff
     name: ruff
-    entry: poetry run ruff muffin_sentry
+    entry: ruff check muffin_sentry
     language: system
     pass_filenames: false
+    files: \.py$
     stages: ["pre-commit"]
 
   - id: mypy
     name: mypy
-    entry: poetry run mypy
+    entry: mypy
     language: system
     pass_filenames: false
+    files: \.py$
     stages: ["pre-push"]
 
   - id: pytest
     name: pytest
-    entry: poetry run pytest tests.py
+    entry: pytest
     language: system
     pass_filenames: false
+    files: \.py$
     stages: ["pre-push"]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextvars import ContextVar
 from functools import partial
-from typing import TYPE_CHECKING, Callable, ClassVar, Dict, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Callable, ClassVar, Optional, TypeVar
 
 from muffin import Application, Request, ResponseError, ResponseRedirect
 from muffin.plugins import BasePlugin
@@ -40,12 +40,12 @@ class Plugin(BasePlugin):
 
     name = "sentry"
     client = None
-    defaults: ClassVar[Dict] = {
+    defaults: ClassVar[dict] = {
         "dsn": "",  # Sentry DSN
         "sdk_options": {},  # See https://docs.sentry.io/platforms/python/configuration/options/
         "ignore_errors": (ResponseError, ResponseRedirect),
     }
-    processors: List[TProcess]
+    processors: list[TProcess]
 
     def __init__(self, *args, **kwargs):
         """Initialize the plugin."""
