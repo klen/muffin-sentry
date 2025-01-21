@@ -28,7 +28,7 @@ Muffin-Sentry
 Requirements
 =============
 
-- python >= 3.8
+- python >= 3.9
 
 .. _installation:
 
@@ -95,13 +95,13 @@ Usage
 Options
 -------
 
-=========================== ======================================= =========================== 
+=========================== ======================================= ===========================
 Name                        Default value                           Desctiption
 --------------------------- --------------------------------------- ---------------------------
 **dsn**                     ``""``                                  Sentry DSN for your application
 **sdk_options**             ``{}``                                  Additional options for Sentry SDK Client. See https://docs.sentry.io/platforms/python/configuration/options/
 **ignore_errors**           ``[ResponseError, ResponseRedirect]``   Exception Types to Ignore
-=========================== ======================================= =========================== 
+=========================== ======================================= ===========================
 
 You are able to provide the options when you are initiliazing the plugin:
 
