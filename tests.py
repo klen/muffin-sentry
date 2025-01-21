@@ -4,15 +4,16 @@ from unittest import mock
 
 import muffin
 import pytest
+import sentry_sdk
 from asgi_tools import Request
 
 
-@pytest.fixture()
+@pytest.fixture
 def app():
     return muffin.Application(SENTRY_DSN="http://public:secret@example.com/1")
 
 
-@pytest.fixture()
+@pytest.fixture
 def sentry(app):
     import muffin_sentry
 
@@ -20,8 +21,17 @@ def sentry(app):
     return muffin_sentry.Plugin(
         app,
         transaction_style="endpoint",
-        sdk_options={"environment": "tests", "release": version},
+        sdk_options={
+            "environment": "tests",
+            "release": version,
+        },
     )
+
+
+def test_global_scope(sentry):
+    sentry_scope = sentry_sdk.get_global_scope()
+    assert sentry_scope.client.options["release"]
+    assert sentry_scope.client.options["environment"] == "tests"
 
 
 def test_request_processor(sentry, client):
@@ -47,12 +57,7 @@ def test_request_processor(sentry, client):
     }
 
 
-async def test_muffin_sentry(app, client, sentry):
-    import sentry_sdk
-
-    hub = sentry_sdk.Hub.current
-    assert hub.client.options["release"]
-    assert hub.client.options["environment"] == "tests"
+async def test_success(app, sentry, client):
 
     @app.route("/success")
     async def success(request):
@@ -60,6 +65,9 @@ async def test_muffin_sentry(app, client, sentry):
 
     res = await client.get("/success")
     assert res.status_code == 200
+
+
+async def test_muffin_sentry(app, client, sentry):
 
     @app.route("/error")
     async def error(request):
