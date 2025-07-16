@@ -102,7 +102,7 @@ async def test_muffin_sentry(app, client, sentry):
         @app.route("/scope")
         async def scope(request):
             request["user"] = {"id": "1", "email": "test@test.com"}
-            scope = sentry.current_scope.get()
+            scope = sentry.scope
             scope.set_tag("tests", "passed")
             app.plugins["sentry"].capture_message("tests")
             return "OK"
@@ -124,6 +124,23 @@ async def test_muffin_sentry(app, client, sentry):
         env, *_ = mocked.call_args.args[0]
         event = env.get_event()
         assert event["exception"]["values"][0]["mechanism"]
+
+
+def test_manual_capture(sentry):
+    with mock.patch("sentry_sdk.transport.HttpTransport.capture_envelope") as mocked:
+
+        try:
+            raise RuntimeError("Manual exception")
+        except Exception as exc:
+            sentry.capture_exception(exc)
+
+        sentry.capture_message("Manual message")
+
+        assert mocked.call_count >= 2
+
+        envelope = mocked.call_args_list[-1].args[0]
+        event = envelope.get_event()
+        assert event.get("message") == "Manual message"
 
 
 # ruff: noqa: TRY002, ARG001

@@ -3,7 +3,7 @@ Muffin-Sentry
 
 .. _description:
 
-**Muffin-Sentry** -- Sentry_ Integration for Muffin_ framework
+**Muffin-Sentry** — Sentry_ integration for the Muffin_ ASGI framework.
 
 .. _badges:
 
@@ -13,33 +13,35 @@ Muffin-Sentry
 
 .. image:: https://img.shields.io/pypi/v/muffin-sentry
     :target: https://pypi.org/project/muffin-sentry/
-    :alt: PYPI Version
+    :alt: PyPI Version
 
 .. image:: https://img.shields.io/pypi/pyversions/muffin-sentry
     :target: https://pypi.org/project/muffin-sentry/
     :alt: Python Versions
 
+.. image:: https://img.shields.io/github/license/klen/muffin-sentry
+    :target: https://opensource.org/licenses/MIT
+    :alt: License
+
 .. _contents:
 
 .. contents::
 
-.. _requirements:
-
 Requirements
-=============
+============
 
-- python >= 3.9
-
-.. _installation:
+- Python >= 3.10
+- Muffin >= 1.0
+- sentry-sdk >= 1.40
 
 Installation
-=============
+============
 
-**Muffin-Sentry** should be installed using pip: ::
+Install using pip:
+
+.. code-block:: bash
 
     pip install muffin-sentry
-
-.. _usage:
 
 Usage
 =====
@@ -49,109 +51,101 @@ Usage
     from muffin import Application
     import muffin_sentry
 
-    # Create Muffin Application
-    app = Application('example')
+    app = Application("example", SENTRY_DSN="https://<public>@sentry.io/<project_id>")
 
-    # Initialize the plugin
-    # As alternative: jinja2 = Jinja2(app, **options)
+    # Initialize the plugin manually (optional if config is provided)
     sentry = muffin_sentry.Plugin()
-    sentry.setup(app, dsn="DSN_URL")
+    sentry.setup(app)
 
-    # Setup custom request processors (coroutines are not supported)
+    # Add custom processor (must be sync)
     @sentry.processor
-    def user_scope(event, hint, request):
-        if request.user:
-            event['user'] = request.user.email
+    def enrich_event(event, hint, request):
+        if user := getattr(request, "user", None):
+            event["user"] = {"id": str(user.id)}
         return event
 
-    # Use it inside your handlers
+    # Raise unhandled exception
+    @app.route("/fail")
+    async def fail(request):
+        raise RuntimeError("Boom")
 
-    # The exception will be send to Sentry
-    @app.route('/unhandled')
-    async def catch_exception(request):
-        raise Exception('unhandled')
+    # Manually capture a message
+    @app.route("/capture")
+    async def capture(request):
+        sentry.capture_message("Manual log")
+        return "OK"
 
-    # Capture a message by manual
-    @app.route('/capture_message')
-    async def message(request):
-        sentry.capture_message('a message from app')
-        return 'OK'
+    # Update scope manually
+    @app.route("/scope")
+    async def tag_scope(request):
+        sentry.scope.set_tag("section", "test")
+        sentry.capture_exception(Exception("With scope tag"))
+        return "OK"
 
-    # Capture an exception by manual
-    @app.route('/capture_exception')
-    async def exception(request):
-        sentry.capture_exception(Exception())
-        return 'OK'
+Configuration Options
+=====================
 
-    # Update Sentry Scope
-    @app.route('/update_user')
-    async def user(request):
-        scope = sentry.current_scope.get()
-        scope.set_user({'id': 1, 'email': 'example@example.com'})
-        sentry.capture_exception(Exception())
-        return 'OK'
+You can configure the plugin in two ways:
 
+1. **Via Muffin application config (recommended)**:
 
-Options
--------
+.. code-block:: python
+
+    app = Application(
+        "app",
+        SENTRY_DSN="https://...",
+        SENTRY_SDK_OPTIONS={"traces_sample_rate": 0.5},
+    )
+
+2. **Or by calling `.setup()` manually**:
+
+.. code-block:: python
+
+    sentry.setup(app, dsn="https://...", sdk_options={"traces_sample_rate": 0.5})
+
+Available options:
 
 =========================== ======================================= ===========================
-Name                        Default value                           Desctiption
+Name                        Default value                           Description
 --------------------------- --------------------------------------- ---------------------------
-**dsn**                     ``""``                                  Sentry DSN for your application
-**sdk_options**             ``{}``                                  Additional options for Sentry SDK Client. See https://docs.sentry.io/platforms/python/configuration/options/
-**ignore_errors**           ``[ResponseError, ResponseRedirect]``   Exception Types to Ignore
+**dsn**                     ``""``                                  Sentry DSN for your project
+**sdk_options**             ``{}``                                  Dict of options for sentry-sdk (e.g., traces_sample_rate)
+**ignore_errors**           ``[ResponseError, ResponseRedirect]``   Exception classes to ignore
 =========================== ======================================= ===========================
 
-You are able to provide the options when you are initiliazing the plugin:
+Notes
+=====
 
-.. code-block:: python
+- You can access the current Sentry scope using `plugin.scope`.
+- Event processors must be **synchronous** functions.
+- Sentry sessions and transactions are handled automatically inside the plugin middleware.
 
-    sentry.setup(app, dsn='DSN_URL')
-
-
-Or setup it inside ``Muffin.Application`` config using the ``SENTRY_`` prefix:
-
-.. code-block:: python
-
-   SENTRY_DSN = 'DSN_URL'
-
-``Muffin.Application`` configuration options are case insensitive
-
-.. _bugtracker:
-
-Bug tracker
+Bug Tracker
 ===========
 
-If you have any suggestions, bug reports or
-annoyances please report them to the issue tracker
-at https://github.com/klen/muffin-sentry/issues
-
-.. _contributing:
+Found a bug or have a feature request?
+Please open an issue at: https://github.com/klen/muffin-sentry/issues
 
 Contributing
 ============
 
-Development of Muffin-Sentry happens at: https://github.com/klen/muffin-sentry
+Development happens at: https://github.com/klen/muffin-sentry
 
-
-Contributors
-=============
-
-* klen_ (Kirill Klenov)
-
-.. _license:
+Pull requests and suggestions are welcome!
 
 License
-========
+=======
 
-Licensed under a `MIT license`_.
+Licensed under the `MIT license`_.
+
+Credits
+=======
+
+- Created by `klen`_ (Kirill Klenov)
 
 .. _links:
 
-
-.. _klen: https://github.com/klen
-.. _Muffin: https://github.com/klen/muffin
 .. _Sentry: https://sentry.io/
-
-.. _MIT license: http://opensource.org/licenses/MIT
+.. _Muffin: https://github.com/klen/muffin
+.. _MIT license: https://opensource.org/licenses/MIT
+.. _klen: https://github.com/klen

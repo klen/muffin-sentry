@@ -1,73 +1,65 @@
-"""Sentry integration to Muffin framework."""
+"""Sentry integration for the Muffin ASGI framework."""
 
 from __future__ import annotations
 
-from contextvars import ContextVar
 from functools import partial
-from typing import TYPE_CHECKING, Callable, ClassVar, Optional, TypeVar
+from typing import TYPE_CHECKING, Callable, ClassVar, TypeVar
 
-from muffin import Application, Request, ResponseError, ResponseRedirect
+from muffin import Application, Request, Response, ResponseError, ResponseRedirect
 from muffin.plugins import BasePlugin
 from sentry_sdk import Scope as SentryScope
+from sentry_sdk import (
+    capture_exception,
+    capture_message,
+    get_current_scope,
+    push_scope,
+    start_session,
+    start_transaction,
+)
 from sentry_sdk import init as sentry_init
-from sentry_sdk import isolation_scope, start_transaction
-from sentry_sdk.sessions import track_session
 from sentry_sdk.tracing import Transaction
 from sentry_sdk.types import Event, Hint
 
 if TYPE_CHECKING:
     from asgi_tools.types import TASGIApp, TASGIReceive, TASGISend
 
-TProcess = Callable[[Event, Hint, Request], Optional[Event]]
+TProcess = Callable[[Event, Hint, Request], Event | None]
 TVProcess = TypeVar("TVProcess", bound=TProcess)
-
-SENTRY_SCOPE: ContextVar[Optional[SentryScope]] = ContextVar("sentry_scope", default=None)
-
-
-class CurrentScope:
-    def __getattr__(self, name):
-        scope = SENTRY_SCOPE.get()
-        if scope:
-            return getattr(scope, name)
-        raise RuntimeError("Sentry scope is not available")
-
-
-SCOPE = CurrentScope()
 
 
 class Plugin(BasePlugin):
-    """Setup Sentry and send exceptions and messages."""
+    """Sentry plugin for Muffin."""
 
     name = "sentry"
-    client = None
     defaults: ClassVar = {
-        "dsn": "",  # Sentry DSN
-        "sdk_options": {},  # See https://docs.sentry.io/platforms/python/configuration/options/
+        "dsn": "",
+        "sdk_options": {
+            "traces_sample_rate": 0.1,  # Default tracing
+            "profiles_sample_rate": 0.0,  # Disable profiling by default
+        },
         "ignore_errors": (ResponseError, ResponseRedirect),
     }
     processors: list[TProcess]
 
     def __init__(self, *args, **kwargs):
-        """Initialize the plugin."""
-        super(Plugin, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.processors = []
 
-    @property
-    def current_scope(self):
-        """Get current Sentry Scope."""
-        return SENTRY_SCOPE
-
     def setup(self, app: Application, **options):
-        """Initialize Sentry Client."""
+        """Initialize Sentry SDK."""
         if not super().setup(app, **options):
             return False
 
-        # Setup Sentry
         dsn = self.cfg.dsn
         if dsn:
             sentry_init(dsn=dsn, **self.cfg.sdk_options)
 
         return True
+
+    @property
+    def scope(self) -> SentryScope:
+        """Access the current scope."""
+        return get_current_scope()
 
     async def middleware(  # type: ignore[override]
         self,
@@ -76,18 +68,19 @@ class Plugin(BasePlugin):
         receive: TASGIReceive,
         send: TASGISend,
     ):
-        """Capture exceptions to Sentry."""
+        """Sentry middleware to capture exceptions and trace requests."""
         cfg = self.cfg
         url = request.url
-        asgi_scope = request.scope
-        asgi_type = asgi_scope["type"]
+        scope = request.scope
+        asgi_type = scope["type"]
 
-        with isolation_scope() as sentry_scope:
-            with track_session(sentry_scope, session_mode="request"):
-                sentry_scope.clear_breadcrumbs()
-                sentry_scope._name = "muffin"
-                sentry_scope.add_event_processor(partial(self.process_data, request=request))
-                SENTRY_SCOPE.set(sentry_scope)
+        with push_scope() as sentry_scope:
+            sentry_scope.clear_breadcrumbs()
+            sentry_scope.set_tag("framework", "muffin")
+            sentry_scope.set_tag("asgi.type", asgi_type)
+            sentry_scope.add_event_processor(partial(self.process_data, request=request))
+
+            start_session()
 
             trans = Transaction.continue_from_headers(
                 request.headers,
@@ -95,37 +88,42 @@ class Plugin(BasePlugin):
                 source="url",
                 op=f"{asgi_type}.server",
             )
-            trans.set_tag("asgi.type", asgi_type)
-            with start_transaction(trans, custom_sampling_context={"asgi_scope": asgi_scope}):
+
+            with start_transaction(trans, custom_sampling_context={"asgi_scope": scope}):
                 try:
                     response = await handler(request, receive, send)
                     trans.set_http_status(response.status_code)
-                    return response  # noqa: TRY300
 
                 except Exception as exc:
+                    trans.set_http_status(exc.status_code if isinstance(exc, Response) else 500)
                     if type(exc) not in cfg.ignore_errors:
-                        sentry_scope.capture_exception(exc)
-                    raise exc from exc
+                        capture_exception(exc)
+
+                    raise
+
+                else:
+                    return response
 
     def processor(self, fn: TVProcess) -> TVProcess:
-        """Register a custom processor."""
+        """Register an event processor."""
         self.processors.append(fn)
         return fn
 
-    def process_data(self, event: Event, hint: Hint, *, request: Request) -> Optional[Event]:
-        """Prepare data before send it to Sentry."""
+    def process_data(self, event: Event, hint: Hint, *, request: Request) -> Event | None:
+        """Enhance Sentry event with request data and run processors."""
         if request:
             url = request.url
             scope = request.scope
+
             event["request"] = {
-                "url": f"{url.scheme}://{url.host}{url.path}",
-                "query_string": request.url.query_string,
-                "method": scope["method"],
+                "url": str(url),
+                "query_string": url.query_string,
+                "method": scope.get("method", ""),
                 "headers": dict(request.headers),
             }
 
-            if scope.get("client"):
-                event["request"]["env"] = {"REMOTE_ADDR": scope["client"][0]}
+            if client := scope.get("client"):
+                event["request"]["env"] = {"REMOTE_ADDR": client[0]}
 
         for processor in self.processors:
             event = processor(event, hint, request) or event
@@ -133,15 +131,11 @@ class Plugin(BasePlugin):
         return event
 
     def capture_exception(self, *args, **kwargs):
-        """Capture exception."""
+        """Manually capture an exception."""
         if self.cfg.dsn:
-            scope = SENTRY_SCOPE.get()
-            assert scope
-            return scope.capture_exception(*args, **kwargs)
+            return capture_exception(*args, **kwargs)
 
     def capture_message(self, *args, **kwargs):
-        """Capture message."""
+        """Manually capture a message."""
         if self.cfg.dsn:
-            scope = SENTRY_SCOPE.get()
-            assert scope
-            return scope.capture_message(*args, **kwargs)
+            return capture_message(*args, **kwargs)
