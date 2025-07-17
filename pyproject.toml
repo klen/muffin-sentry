@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "muffin-sentry"
-version = "2.0.1"
+version = "2.0.2"
 description = "Sentry Integration for Muffin framework"
 readme = "README.md"
 license = "MIT"
