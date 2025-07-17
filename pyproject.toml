@@ -2,7 +2,7 @@
 name = "muffin-sentry"
 version = "2.0.0"
 description = "Sentry Integration for Muffin framework"
-readme = "README.rst"
+readme = "README.md"
 license = "MIT"
 authors = ["Kirill Klenov <horneds@gmail.com>"]
 homepage = "https://github.com/klen/muffin-sentry"

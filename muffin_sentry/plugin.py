@@ -12,7 +12,7 @@ from sentry_sdk import (
     capture_exception,
     capture_message,
     get_current_scope,
-    push_scope,
+    isolation_scope,
     start_session,
     start_transaction,
 )
@@ -74,7 +74,7 @@ class Plugin(BasePlugin):
         scope = request.scope
         asgi_type = scope["type"]
 
-        with push_scope() as sentry_scope:
+        with isolation_scope() as sentry_scope:
             sentry_scope.clear_breadcrumbs()
             sentry_scope.set_tag("framework", "muffin")
             sentry_scope.set_tag("asgi.type", asgi_type)
