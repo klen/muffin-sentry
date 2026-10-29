@@ -97,7 +97,7 @@ Available options:
 | --------------- | ---------------------------------------------------------- | ---------------------------------------------------------- |
 | `dsn`           | `""`                                                       | Sentry DSN; when empty `sentry_sdk.init()` is never called |
 | `sdk_options`   | `{"traces_sample_rate": 0.1, "profiles_sample_rate": 0.0}` | Keyword arguments for `sentry_sdk.init()`                  |
-| `ignore_errors` | `(ResponseError, ResponseRedirect)`                        | Exception classes the middleware reports no event for      |
+| `ignore_errors` | `()`                                                       | Exception classes the middleware reports no event for      |
 
 `sdk_options` is replaced as a whole (no deep merge), so a custom dict has to repeat the defaults you
 want to keep:
@@ -115,11 +115,9 @@ app = Application(
 )
 ```
 
-The two defaults are Muffin's "the request was answered" exceptions, not failures: `ResponseError`
-(`raise ResponseError(404)`, also what Muffin answers for an unknown route) and `ResponseRedirect`
-(`raise ResponseRedirect(...)`, used by `muffin.redirect`). Both derive from `BaseException` in
-asgi-tools, so they already slip past the middleware's `except Exception`; the option is there for your
-own classes, and it compares by exact type, so a subclass of either class is still reported.
+`ResponseError` (Muffin's 404) and `ResponseRedirect` (`muffin.redirect`) are handled by the middleware
+itself: they are control flow, not failures, so no event is sent and the transaction gets the real
+status code. `ignore_errors` is for your own exception classes and compares by exact type.
 
 ## API
 
@@ -132,17 +130,17 @@ events captured during that request. Before `setup()` it returns the global scop
 ### `plugin.processor(fn)`
 
 Decorator registering an event processor. `fn(event, hint, request)` is called synchronously from
-`process_data()` after the request context (`url`, `query_string`, `method`, `headers`, `REMOTE_ADDR`)
-has been added to the event. Return the modified event, or `None` to keep the event unchanged. Processors
-are never awaited: an `async def` processor returns a coroutine that is stored as the event, so keep
-them synchronous.
+`process_data()` after the request context (`url`, `query_string`, `method`, `headers`) has been added
+to the event. `REMOTE_ADDR` is added only when `send_default_pii` is enabled. Return the modified
+event, or `None` to keep the event unchanged. Processors are never awaited: an `async def` processor
+returns a coroutine that is stored as the event, so keep them synchronous.
 
 ### `plugin.capture_exception(exc)` / `plugin.capture_message(msg)`
 
-Proxies to `sentry_sdk.capture_exception()` / `capture_message()` that do nothing when `dsn` is empty.
-The difference from calling the SDK directly is what is attached: the request isolation scope, the
-plugin's tags (`framework`, `asgi.type`), the scope modified by your processors and the active
-transaction all come along automatically.
+Proxies to `sentry_sdk.capture_exception()` / `capture_message()`, which do nothing when no Sentry
+client is active (no `dsn` configured). The difference from calling the SDK directly is what is
+attached: the request isolation scope, the plugin's tags (`framework`, `asgi.type`), the scope modified
+by your processors and the active transaction all come along automatically.
 
 ### `plugin.middleware`
 
@@ -150,15 +148,18 @@ Runs around every request:
 
 - opens an isolation scope, clears breadcrumbs, tags `framework=muffin` and `asgi.type`
   (`http`/`websocket`/...), and registers the event processor that fills `event["request"]`;
-- calls `sentry_sdk.start_session()`;
+- starts a Sentry session for the request and ends it when the request is done, which is what release
+  health reports;
 - continues the incoming trace (`sentry-trace`/`baggage` headers) and starts a transaction named after
   the request path with `op="{asgi.type}.server"`, so distributed traces connect the frontend request
-  with backend errors;
+  with backend errors. The event is then renamed after the matched view
+  (`module.function`), so routes with ids (`/users/42`) do not create one transaction name per id;
 - sets the HTTP status on the transaction and captures unhandled exceptions, except the classes listed
   in `ignore_errors`.
 
 Consequently a request that ends up with `ResponseError` (Muffin's 404, for example) produces a
-transaction but no error event. Disable tracing by setting `traces_sample_rate` to `0` in `sdk_options`.
+transaction with status `not_found` but no error event. Disable tracing by setting
+`traces_sample_rate` to `0` in `sdk_options`.
 
 ## Notes
 

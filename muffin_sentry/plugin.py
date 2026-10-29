@@ -5,16 +5,16 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING, Callable, ClassVar, TypeVar
 
-from muffin import Application, Request, Response, ResponseError, ResponseRedirect
+from muffin import Application, Request, ResponseError, ResponseRedirect
 from muffin.plugins import BasePlugin
 from sentry_sdk import Scope as SentryScope
 from sentry_sdk import (
     capture_exception,
     capture_message,
     continue_trace,
+    get_client,
     get_current_scope,
     isolation_scope,
-    start_session,
     start_transaction,
 )
 from sentry_sdk import init as sentry_init
@@ -37,9 +37,13 @@ class Plugin(BasePlugin):
             "traces_sample_rate": 0.1,  # Default tracing
             "profiles_sample_rate": 0.0,  # Disable profiling by default
         },
-        "ignore_errors": (ResponseError, ResponseRedirect),
+        "ignore_errors": (),
     }
     processors: list[TProcess]
+
+    # The SDK already does nothing without an active client, no need to guard the DSN here
+    capture_exception = staticmethod(capture_exception)
+    capture_message = staticmethod(capture_message)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -70,7 +74,6 @@ class Plugin(BasePlugin):
     ):
         """Sentry middleware to capture exceptions and trace requests."""
         cfg = self.cfg
-        url = request.url
         scope = request.scope
         asgi_type = scope["type"]
 
@@ -80,29 +83,41 @@ class Plugin(BasePlugin):
             sentry_scope.set_tag("asgi.type", asgi_type)
             sentry_scope.add_event_processor(partial(self.process_data, request=request))
 
-            start_session()
+            sentry_scope.start_session(session_mode="request")
 
             trans = continue_trace(
                 dict(request.headers),
-                name=url.path,
+                name=request.url.path,
                 source="url",
                 op=f"{asgi_type}.server",
             )
 
-            with start_transaction(trans, custom_sampling_context={"asgi_scope": scope}):
-                try:
-                    response = await handler(request, receive, send)
-                    trans.set_http_status(response.status_code)
+            try:
+                with start_transaction(trans, custom_sampling_context={"asgi_scope": scope}):
+                    try:
+                        response = await handler(request, receive, send)
 
-                except Exception as exc:
-                    trans.set_http_status(exc.status_code if isinstance(exc, Response) else 500)
-                    if type(exc) not in cfg.ignore_errors:
-                        capture_exception(exc)
+                    except (ResponseError, ResponseRedirect) as exc:
+                        # asgi-tools control flow (404, redirect) is not an error
+                        trans.set_http_status(exc.status_code)
+                        trans.finish()
+                        raise
 
-                    raise
+                    except Exception as exc:
+                        trans.set_http_status(500)
+                        if type(exc) not in cfg.ignore_errors:
+                            capture_exception(exc)
 
-                else:
-                    return response
+                        raise
+
+                    else:
+                        # websocket handlers return nothing
+                        if response is not None:
+                            trans.set_http_status(response.status_code)
+
+                        return response
+            finally:
+                sentry_scope.end_session()
 
     def processor(self, fn: TVProcess) -> TVProcess:
         """Register an event processor."""
@@ -122,20 +137,15 @@ class Plugin(BasePlugin):
                 "headers": dict(request.headers),
             }
 
-            if client := scope.get("client"):
+            if (client := scope.get("client")) and get_client().should_send_default_pii():
                 event["request"]["env"] = {"REMOTE_ADDR": client[0]}
+
+            # name the event after the view, so URLs with ids don't create a name per id
+            if (endpoint := scope.get("endpoint")) and hasattr(endpoint, "__qualname__"):
+                event["transaction"] = f"{endpoint.__module__}.{endpoint.__qualname__}"
+                event["transaction_info"] = {"source": "component"}
 
         for processor in self.processors:
             event = processor(event, hint, request) or event
 
         return event
-
-    def capture_exception(self, *args, **kwargs):
-        """Manually capture an exception."""
-        if self.cfg.dsn:
-            return capture_exception(*args, **kwargs)
-
-    def capture_message(self, *args, **kwargs):
-        """Manually capture a message."""
-        if self.cfg.dsn:
-            return capture_message(*args, **kwargs)

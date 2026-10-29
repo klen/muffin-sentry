@@ -5,7 +5,8 @@ from unittest import mock
 import muffin
 import pytest
 import sentry_sdk
-from asgi_tools import Request
+from asgi_tools import Request, ResponseWebSocket
+from asgi_tools.tests import ASGITestClient
 
 
 @pytest.fixture
@@ -20,7 +21,6 @@ def sentry(app):
     version = metadata.version("muffin-sentry")
     return muffin_sentry.Plugin(
         app,
-        transaction_style="endpoint",
         sdk_options={
             "environment": "tests",
             "release": version,
@@ -51,11 +51,18 @@ def test_request_processor(sentry, client):
                 "host": "localhost",
                 "user-agent": "ASGI-Tools-Test-Client",
             },
-            "env": {
-                "REMOTE_ADDR": "127.0.0.1",
-            },
         },
     }
+
+
+def test_request_processor_pii(app, client):
+    import muffin_sentry
+
+    sentry = muffin_sentry.Plugin(app, sdk_options={"send_default_pii": True})
+    scope = client.build_scope("/", type="http", method="POST")
+    request = Request(scope, lambda: None, lambda: None)
+    event = sentry.process_data({}, {}, request=request)
+    assert event["request"]["env"] == {"REMOTE_ADDR": "127.0.0.1"}
 
 
 async def test_success(app, sentry, client):
@@ -97,7 +104,7 @@ async def test_muffin_sentry(app, client, sentry):
         assert mocked.called
         env, *_ = mocked.call_args.args[0]
         event = env.get_event()
-        assert event["transaction"] == "/error"
+        assert event["transaction"] == f"{error.__module__}.{error.__qualname__}"
         assert event["contexts"]["trace"]["trace_id"] == trace_id
         assert event["request"]
         assert event["request"]["url"] == "http://localhost/error"
@@ -146,6 +153,101 @@ def test_manual_capture(sentry):
 
 
 # ruff: noqa: TRY002, TRY301, BLE001
+
+
+async def test_websocket(app, sentry, client):
+    """Websocket handlers return nothing, the middleware must not expect a response."""
+
+    @app.route("/ws")
+    async def ws(request):
+        async with ResponseWebSocket(request) as socket:
+            await socket.send("hello")
+
+    with mock.patch("sentry_sdk.transport.HttpTransport.capture_envelope") as mocked:
+        async with client.websocket("/ws") as socket:
+            assert await socket.receive() == "hello"
+
+        events = [
+            item.payload.json
+            for call in mocked.call_args_list
+            for item in call.args[0].items
+            if item.headers.get("type") == "event"
+        ]
+        assert not events
+
+
+async def test_sessions(app, sentry, client):
+    """Every request sends one session, otherwise release health stays empty."""
+
+    @app.route("/session")
+    async def session(request):
+        return "OK"
+
+    with mock.patch.object(sentry_sdk.client.Client, "capture_session") as mocked:
+        res = await client.get("/session")
+        assert res.status_code == 200
+        assert mocked.call_count == 1
+
+
+async def test_not_found(app, client):
+    """A 404 is not an error: no event, transaction status is the real one."""
+    import muffin_sentry
+
+    muffin_sentry.Plugin(app, sdk_options={"traces_sample_rate": 1.0})
+
+    with mock.patch("sentry_sdk.transport.HttpTransport.capture_envelope") as mocked:
+        res = await client.get("/missing")
+        assert res.status_code == 404
+
+        items = [item for call in mocked.call_args_list for item in call.args[0].items]
+        assert not [item for item in items if item.headers.get("type") == "event"]
+        transactions = [
+            item.payload.json for item in items if item.headers.get("type") == "transaction"
+        ]
+        assert transactions[0]["contexts"]["trace"]["status"] == "not_found"
+
+
+async def test_transaction_name(app, client):
+    """Transactions are named after the view, not after the URL, so ids don't split them."""
+    import muffin_sentry
+
+    muffin_sentry.Plugin(app, sdk_options={"traces_sample_rate": 1.0})
+
+    @app.route("/users/{id}")
+    async def user(request):
+        return "OK"
+
+    with mock.patch("sentry_sdk.transport.HttpTransport.capture_envelope") as mocked:
+        await client.get("/users/1")
+        await client.get("/users/2")
+
+        names = {
+            item.payload.json["transaction"]
+            for call in mocked.call_args_list
+            for item in call.args[0].items
+            if item.headers.get("type") == "transaction"
+        }
+        assert names == {f"{user.__module__}.{user.__qualname__}"}
+
+
+async def test_without_dsn():
+    """No DSN: the plugin is a thin no-op."""
+    import muffin_sentry
+
+    sentry_sdk.init()  # no dsn -> inactive client
+    app = muffin.Application()
+    sentry = muffin_sentry.Plugin(app)
+
+    @app.route("/ok")
+    async def ok(request):
+        return "OK"
+
+    with mock.patch("sentry_sdk.transport.HttpTransport.capture_envelope") as mocked:
+        res = await ASGITestClient(app).get("/ok")
+        assert res.status_code == 200
+        assert not mocked.called
+        assert sentry.capture_exception(RuntimeError("boom")) is None
+        assert sentry.capture_message("hi") is None
 
 
 def test_setup_contract(app):
