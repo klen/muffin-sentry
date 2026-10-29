@@ -1,6 +1,6 @@
 [project]
 name = "muffin-sentry"
-version = "2.0.2"
+version = "2.1.0"
 description = "Sentry Integration for Muffin framework"
 authors = [{ name = "Kirill Klenov", email = "horneds@gmail.com" }]
 requires-python = ">=3.11,<4"
@@ -105,7 +105,7 @@ ignore = [
 ]
 
 [tool.bumpversion]
-current_version = "2.0.2"
+current_version = "2.1.0"
 commit = false
 tag = false
 
