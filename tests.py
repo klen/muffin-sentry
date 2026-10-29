@@ -35,7 +35,8 @@ def test_global_scope(sentry):
 
 
 def test_request_processor(sentry, client):
-    request = Request(client.build_scope("/", type="http", method="POST"), lambda: None, lambda: None)  # type: ignore[]
+    scope = client.build_scope("/", type="http", method="POST")
+    request = Request(scope, lambda: None, lambda: None)
     processor = partial(sentry.process_data, request=request)
     assert processor
 
@@ -128,7 +129,6 @@ async def test_muffin_sentry(app, client, sentry):
 
 def test_manual_capture(sentry):
     with mock.patch("sentry_sdk.transport.HttpTransport.capture_envelope") as mocked:
-
         try:
             raise RuntimeError("Manual exception")
         except Exception as exc:
@@ -143,4 +143,4 @@ def test_manual_capture(sentry):
         assert event.get("message") == "Manual message"
 
 
-# ruff: noqa: TRY002, ARG001
+# ruff: noqa: TRY002, TRY301, BLE001
