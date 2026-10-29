@@ -146,3 +146,12 @@ def test_manual_capture(sentry):
 
 
 # ruff: noqa: TRY002, TRY301, BLE001
+
+
+def test_setup_contract(app):
+    """The plugin follows the muffin 3 setup() contract."""
+    from muffin_sentry import Plugin
+
+    assert Plugin(app) is not None
+    assert Plugin().setup(app) is True
+    assert Plugin().setup(app, disabled=True) is False
