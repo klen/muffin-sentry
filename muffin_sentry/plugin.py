@@ -45,9 +45,9 @@ class Plugin(BasePlugin):
         super().__init__(*args, **kwargs)
         self.processors = []
 
-    def setup(self, app: Application, **options):
+    def setup(self, app: Application, *, name: str | None = None, **options) -> bool:
         """Initialize Sentry SDK."""
-        if not super().setup(app, **options):
+        if not super().setup(app, name=name, **options):
             return False
 
         dsn = self.cfg.dsn
