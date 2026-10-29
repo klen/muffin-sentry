@@ -11,13 +11,13 @@ from sentry_sdk import Scope as SentryScope
 from sentry_sdk import (
     capture_exception,
     capture_message,
+    continue_trace,
     get_current_scope,
     isolation_scope,
     start_session,
     start_transaction,
 )
 from sentry_sdk import init as sentry_init
-from sentry_sdk.tracing import Transaction
 from sentry_sdk.types import Event, Hint
 
 if TYPE_CHECKING:
@@ -82,8 +82,8 @@ class Plugin(BasePlugin):
 
             start_session()
 
-            trans = Transaction.continue_from_headers(
-                request.headers,
+            trans = continue_trace(
+                dict(request.headers),
                 name=url.path,
                 source="url",
                 op=f"{asgi_type}.server",

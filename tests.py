@@ -91,12 +91,14 @@ async def test_muffin_sentry(app, client, sentry):
     await app.lifespan.run("startup")
 
     with mock.patch("sentry_sdk.transport.HttpTransport.capture_envelope") as mocked:
-        res = await client.get("/error")
+        trace_id = "1234567890abcdef1234567890abcdef"
+        res = await client.get("/error", headers={"sentry-trace": f"{trace_id}-1234567890abcdef-1"})
         assert res.status_code == 500
         assert mocked.called
         env, *_ = mocked.call_args.args[0]
         event = env.get_event()
         assert event["transaction"] == "/error"
+        assert event["contexts"]["trace"]["trace_id"] == trace_id
         assert event["request"]
         assert event["request"]["url"] == "http://localhost/error"
 
